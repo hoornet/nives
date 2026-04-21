@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.18
+
+- **Fix recall** — facts that were saved to memory but not being returned on recall (e.g. "what's my passkey?" answered with "I don't know" even though the fact existed under `/api/memory/{userId}`). Retrieval now always pulls the user's tagged fact set; proactive-context results are merged on top as a query-relevance boost and deduped. Bundles home-mind-server v0.15.0.
+- Raise `MEMORY_TOKEN_LIMIT` default 1500 → 3000 so more facts fit in the system prompt by default (prompt caching makes the extra tokens essentially free).
+- Add `[recall]` debug log under `LOG_LEVEL=debug` for diagnosing recall issues.
+
 ## 1.0.17
 
 - Restructure configuration into clear Cloud and BYOK sections — no more overlapping fields
