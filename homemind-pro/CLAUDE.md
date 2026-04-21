@@ -12,12 +12,12 @@ This is the turnkey product version of Home Mind. Users install one add-on and g
 
 ## License & Source Boundaries
 
-This repo is **AGPL-3.0**. The server code is vendored directly in `server/` (no submodule).
+This repo is **AGPL-3.0**. The server code in `server/` is a **hard fork** of `home-mind` — see below.
 
 | Repo | License | Visibility | Relationship |
 |------|---------|------------|-------------|
-| `homemind-pro-addon` | AGPL-3.0 | **Public** | **This repo** — HA add-on + vendored server |
-| `home-mind` | AGPL-3.0 | **Public** | OSS origin of server code (now independent) |
+| `homemind-pro-addon` | AGPL-3.0 | **Public** | **This repo** — HA add-on + forked server (the paid product) |
+| `home-mind` | AGPL-3.0 | **Public** | Historic origin of `server/` code. **Now fully independent** — no sync in either direction |
 | `home-mind-hacs` | AGPL-3.0 | **Public** | LEGACY — integration now lives in rootfs/ |
 | `home-mind-proxy` | Proprietary | **Private** | Cloud LLM metering proxy (VPS service) |
 | `home-mind-cloud` | Proprietary | **Private** | Cloud signup/billing |
@@ -25,7 +25,8 @@ This repo is **AGPL-3.0**. The server code is vendored directly in `server/` (no
 
 **Critical rules:**
 - Never add proprietary code from closed-source repos
-- `server/` is a vendored copy of home-mind — edit it directly here, do NOT sync back to home-mind
+- `server/` is a **hard fork**, not a vendored mirror. Apply fixes here directly. Do NOT cherry-pick from `home-mind` on autopilot — the two products will diverge intentionally, and cross-syncing guarantees mysterious drift bugs (it already caused one: the reasoning-model fact extractor fix landed in OSS but took days to reach the paid product)
+- A fix relevant to both products must be applied in each, with a clear reason each time
 - The proxy URL in options-to-env.sh is the only reference to the cloud service
 - To update server code: edit `server/src/home-mind-server/` directly in this repo
 
@@ -158,8 +159,7 @@ Note: Without a real Supervisor, HA API calls will fail. The server still starts
 
 ### Updating Server Code
 
-Edit `server/src/home-mind-server/` directly. The server is now vendored — no submodule to update.
-To pull in a specific fix from the OSS `home-mind` repo, cherry-pick or manually copy the relevant files.
+Edit `server/src/home-mind-server/` directly. This is the authoritative source for the addon — no submodule, no sync, no mirror. The `home-mind` OSS project is an independent codebase that happens to share history. Treat it like any third-party library you'd consult for reference but not blindly copy.
 
 ### Testing on Real HA
 
