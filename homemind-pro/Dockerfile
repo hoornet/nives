@@ -7,7 +7,7 @@
 # -------------------------------------------------------------------
 FROM ubuntu:24.04 AS shodh
 
-ARG SHODH_VERSION=v0.1.91
+ARG SHODH_VERSION=v0.2.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -20,9 +20,25 @@ RUN ARCH=$(uname -m) \
     && mkdir -p /tmp/shodh \
     && tar -xzf /tmp/shodh.tar.gz -C /tmp/shodh \
     && cp /tmp/shodh/shodh /usr/local/bin/shodh \
-    && cp /tmp/shodh/libonnxruntime.so /usr/local/lib/ \
     && chmod +x /usr/local/bin/shodh \
     && rm -rf /tmp/shodh /tmp/shodh.tar.gz
+# Pre-seed Shodh's ONNX Runtime cache with a correct libonnxruntime.so symlink.
+# Shodh v0.2.0's first-boot download has a bug: it saves libonnxruntime_providers_shared.so
+# (~14KB stub) over the main libonnxruntime.so slot, so dlopen panics with
+# `expected OrtGetApiBase to be present in libonnxruntime`. Seeding the cache at build time
+# with the correct v1.23.2 library + symlink (matching what ort 2.0-rc.11 expects) avoids
+# the runtime download + panic cycle and makes first boot clean.
+ARG ORT_VERSION=1.23.2
+RUN ARCH=$(uname -m) \
+    && ORT_ARCH=$(if [ "$ARCH" = "aarch64" ]; then echo "aarch64"; else echo "x64"; fi) \
+    && curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-${ORT_ARCH}-${ORT_VERSION}.tgz" \
+       -o /tmp/ort.tgz \
+    && mkdir -p /tmp/ort /root/.cache/shodh-memory/onnxruntime \
+    && tar -xzf /tmp/ort.tgz -C /tmp/ort --strip-components=1 \
+    && cp /tmp/ort/lib/libonnxruntime.so.${ORT_VERSION} /root/.cache/shodh-memory/onnxruntime/ \
+    && cp /tmp/ort/lib/libonnxruntime_providers_shared.so /root/.cache/shodh-memory/onnxruntime/ \
+    && ln -s libonnxruntime.so.${ORT_VERSION} /root/.cache/shodh-memory/onnxruntime/libonnxruntime.so \
+    && rm -rf /tmp/ort /tmp/ort.tgz
 
 # Pre-download MiniLM-L6-v2 ONNX model (pinned commit, same URLs Shodh uses)
 # Saves as model_quantized.onnx matching Shodh's expected filename
@@ -91,11 +107,10 @@ RUN curl -fsSL https://github.com/hassio-addons/bashio/archive/refs/tags/v0.16.2
     && ln -s /usr/lib/bashio/bashio /usr/bin/bashio \
     && rm -rf bashio-0.16.2
 
-# Copy Shodh binary, ONNX runtime, and pre-downloaded model from stage 1
+# Copy Shodh binary and pre-downloaded MiniLM-L6-v2 model from stage 1.
+# ONNX Runtime is NOT pre-shipped — see stage 1 note above.
 COPY --from=shodh /usr/local/bin/shodh /usr/local/bin/shodh
-COPY --from=shodh /usr/local/lib/libonnxruntime* /usr/local/lib/
 COPY --from=shodh /root/.cache/shodh-memory /root/.cache/shodh-memory
-RUN ldconfig
 
 # Copy built server from stage 2
 WORKDIR /opt/homemind

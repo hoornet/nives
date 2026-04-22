@@ -10,10 +10,11 @@ fi
 mkdir -p /data/shodh
 
 echo "[shodh] Starting Shodh Memory on port 3030..."
-export SHODH_DEV_API_KEY="$SHODH_KEY"
+export SHODH_API_KEYS="$SHODH_KEY"
 export LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH:-}"
-export SHODH_OFFLINE=true  # model pre-downloaded into image, no runtime download needed
+export SHODH_OFFLINE=true  # MiniLM-L6-v2 pre-downloaded into image; NER model still downloads on first boot (v0.2.0)
 exec /usr/local/bin/shodh server \
     --host 127.0.0.1 \
     --port 3030 \
-    --storage /data/shodh
+    --storage /data/shodh \
+    --production
