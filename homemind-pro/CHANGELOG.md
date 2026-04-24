@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.21
+
+- **Fix silent fact-forgetting** — the cleanup job was deleting every extracted fact within 6 hours because the garbage filter treated any fact with `confidence < 0.5` as low-confidence and purged it. Real-world extracted facts (Haiku) consistently land around 0.25–0.35, so the facts layer would silently wipe itself every cleanup cycle even while the user kept telling the assistant things worth remembering. Threshold lowered from 0.5 to 0.2 in `fact-patterns.ts`. Pattern-based filters (transient state, device specs, command echo, too-short content) still run and catch the actual garbage.
+
 ## 1.0.20
 
 - **Shodh upgrade v0.1.91 → v0.2.0** — entity salience, NER-based filtering, curvature-weighted retrieval, causal lineage inference, glacial exponential decay, and MCP orphan process fix. Read paths dual-decode (postcard + legacy bincode), so existing memory data stays readable and gradually converts to the new format on natural writes — no user migration step required.

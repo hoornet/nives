@@ -148,9 +148,9 @@ describe("filterExtractedFacts", () => {
     }
   });
 
-  it("skips facts with confidence below 0.5", () => {
+  it("skips facts with confidence below 0.2", () => {
     const facts: ExtractedFact[] = [
-      { content: "User might prefer warm lighting", category: "preference", confidence: 0.3 },
+      { content: "User might prefer warm lighting", category: "preference", confidence: 0.1 },
     ];
     const { kept, skipped } = filterExtractedFacts(facts);
     expect(kept).toHaveLength(0);
@@ -214,7 +214,7 @@ describe("filterExtractedFacts", () => {
       { content: "User's name is Jure", category: "identity", confidence: 1.0 },
       { content: "short", category: "preference", confidence: 0.9 },
       { content: "Light is currently red in the kitchen", category: "device", confidence: 0.8 },
-      { content: "Maybe the user likes blue lights", category: "preference", confidence: 0.2 },
+      { content: "Maybe the user likes blue lights", category: "preference", confidence: 0.1 },
     ];
     const { kept, skipped } = filterExtractedFacts(facts);
     expect(kept).toHaveLength(1);

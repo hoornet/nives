@@ -36,7 +36,7 @@ export function matchesGarbagePattern(content: string, confidence?: number): str
     return "command echo (restating action)";
   }
 
-  if (typeof confidence === "number" && confidence < 0.5) {
+  if (typeof confidence === "number" && confidence < 0.2) {
     return `low confidence (${confidence})`;
   }
 
