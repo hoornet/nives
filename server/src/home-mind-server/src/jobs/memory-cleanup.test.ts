@@ -128,6 +128,30 @@ describe("MemoryCleanupJob", () => {
     job.stop();
   });
 
+  it("rescues low-confidence facts that have been used repeatedly", async () => {
+    const facts: Fact[] = [
+      // Low confidence, never used → deleted
+      makeFact({ id: "drop", content: "User prefers warm white in evening", confidence: 0.18, useCount: 0 }),
+      // Low confidence, used 3 times → rescued
+      makeFact({ id: "rescue", content: "User prefers bedroom temperature 18-20°C", confidence: 0.18, useCount: 3 }),
+      // Low confidence, used 10 times → rescued
+      makeFact({ id: "rescue-2", content: "User's children are Anna and Mark", confidence: 0.15, useCount: 10 }),
+      // Pattern-based garbage with high useCount → still deleted (useCount cannot rescue garbage)
+      makeFact({ id: "garbage", content: "Light is currently red in kitchen", confidence: 0.9, useCount: 99 }),
+    ];
+    (memory.getFacts as ReturnType<typeof vi.fn>).mockResolvedValue(facts);
+
+    const job = new MemoryCleanupJob(memory, conversations, 6);
+    const result = await job.runOnce();
+
+    expect(result.factsAnalyzed).toBe(4);
+    expect(result.factsDeleted).toBe(2);
+    expect(memory.deleteFact).toHaveBeenCalledWith("user-1", "drop");
+    expect(memory.deleteFact).toHaveBeenCalledWith("user-1", "garbage");
+    expect(memory.deleteFact).not.toHaveBeenCalledWith("user-1", "rescue");
+    expect(memory.deleteFact).not.toHaveBeenCalledWith("user-1", "rescue-2");
+  });
+
   it("continues processing remaining users when one fails", async () => {
     (conversations.getKnownUsers as ReturnType<typeof vi.fn>).mockReturnValue(["user-fail", "user-ok"]);
     (memory.getFacts as ReturnType<typeof vi.fn>)

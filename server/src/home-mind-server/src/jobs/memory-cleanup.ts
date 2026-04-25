@@ -9,6 +9,13 @@ import type { IMemoryStore } from "../memory/interface.js";
 import type { IConversationStore } from "../memory/types.js";
 import { matchesGarbagePattern } from "../memory/fact-patterns.js";
 
+// A fact reinforced by repeated recall is load-bearing for the user, even
+// if the LLM gave it a low extraction confidence. At/above this useCount,
+// the cleanup job rescues facts from the low-confidence rule. Pattern-based
+// rules (transient, device spec, command echo, too short) are NOT rescued —
+// useCount cannot immortalize actual garbage.
+const RESCUE_USE_COUNT = 3;
+
 export interface CleanupResult {
   usersProcessed: number;
   factsAnalyzed: number;
@@ -87,6 +94,12 @@ export class MemoryCleanupJob {
         for (const fact of facts) {
           const reason = matchesGarbagePattern(fact.content, fact.confidence);
           if (reason) {
+            if (reason.startsWith("low confidence") && fact.useCount >= RESCUE_USE_COUNT) {
+              console.log(
+                `[cleanup] Rescued fact for ${userId} (useCount=${fact.useCount}): "${fact.content}"`
+              );
+              continue;
+            }
             const deleted = await this.memory.deleteFact(userId, fact.id);
             if (deleted) {
               result.factsDeleted++;
