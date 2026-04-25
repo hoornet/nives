@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.23
+
+- **Read Shodh's Hebbian `strength` field as confidence** — the recall path now uses `mem.strength ?? mem.importance` instead of just `importance`. `importance` is the value the client stored at write time; `strength` is the field Shodh updates on each recall hit per its LTP/Hebbian model. We were reading the static input back as confidence, which is why facts looked frozen at extraction confidence forever despite repeated use. Falls back to `importance` if Shodh's response shape doesn't include `strength`, so behavior is unchanged where the new field isn't present.
+- **One-shot Shodh memory shape log** — the first recall after each process start prints `[shodh-shape] first recall memory keys` + full JSON, so the addon log shows exactly which fields Shodh returns (strength, access_count, last_accessed, …). Fires at most once per process; useful for any future debug session.
+
 ## 1.0.22
 
 - **Protect frequently-used facts from cleanup** — the cleanup job now rescues facts with `useCount >= 3` from the low-confidence rule. A fact that has been recalled and used three or more times is load-bearing for the user even if its original extraction confidence was low (Haiku tends to land 0.25–0.35), so deleting it on the next sweep is exactly wrong. Pattern-based rules (transient state, device spec, command echo, too-short content) are not rescued — useCount cannot immortalize actual garbage. Closes the gap that v1.0.21's threshold drop only narrowed.

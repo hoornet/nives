@@ -45,11 +45,22 @@ interface ShodhMemory {
   memory_type?: string;
   tags?: string[];
   importance: number;
+  // Hebbian-updated strength field (per Shodh docs/blog). Grows with use.
+  // Distinct from `importance`, which is the value the client *stored*.
+  // Optional because the public API schema isn't fully documented; we read
+  // it when present and fall back to importance otherwise.
+  strength?: number;
   created_at: string;
   last_accessed?: string;
   access_count?: number;
   score?: number;
 }
+
+// One-shot diagnostic flag: log the first non-empty Shodh memory we see
+// after process start, so we can inspect the full response shape in the
+// addon log without enabling debug mode. Persistent in production —
+// fires at most once per process and helps every future debug session.
+let SHODH_MEMORY_SHAPE_LOGGED = false;
 
 interface ShodhRecallResponse {
   memories: ShodhMemory[];
@@ -300,6 +311,16 @@ export class ShodhMemoryClient {
    * - /api/proactive_context: flat fields (content, memory_type, tags at top level)
    */
   private toFact(mem: ShodhMemory, userId: string): Fact {
+    // One-shot: print the raw memory shape on first sighting per process.
+    // Helps confirm which Hebbian fields Shodh actually returns (strength
+    // vs importance vs reinforcement_count, etc.) without shipping a
+    // debug build for every diagnostic.
+    if (!SHODH_MEMORY_SHAPE_LOGGED) {
+      SHODH_MEMORY_SHAPE_LOGGED = true;
+      console.log("[shodh-shape] first recall memory keys:", Object.keys(mem));
+      console.log("[shodh-shape] first recall memory full:", JSON.stringify(mem));
+    }
+
     // Normalize: proactive_context uses flat fields, recall uses experience wrapper
     const content = mem.experience?.content ?? mem.content ?? "";
     const tags = mem.experience?.tags ?? mem.tags ?? [];
@@ -328,7 +349,11 @@ export class ShodhMemoryClient {
       userId,
       content,
       category,
-      confidence: mem.importance,
+      // Prefer Shodh's Hebbian-updated `strength` when present (it grows
+      // with each recall hit per Shodh's LTP model). Fall back to
+      // `importance` (the static stored value) so we keep working if
+      // Shodh's response shape doesn't include `strength`.
+      confidence: mem.strength ?? mem.importance,
       createdAt: new Date(mem.created_at),
       lastUsed: mem.last_accessed ? new Date(mem.last_accessed) : new Date(mem.created_at),
       useCount: mem.access_count || 0,
