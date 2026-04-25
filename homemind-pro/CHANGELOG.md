@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.24
+
+- **Stop executing time-anchored requests immediately** — when a user said "turn on the kitchen lights at 20h", the assistant was reaching for `call_service` right away and ignoring the time anchor, then offering to set up an automation through the HA UI as an afterthought. The system prompt now has a `SCHEDULED / RECURRING ACTIONS` section that tells the LLM not to `call_service` when the request includes a time anchor (`at 20h`, `every evening`, `tomorrow`, `daily`, `when X happens`), and instead acknowledge the scheduled intent and save it as a remembered preference until automation creation is supported. Honest about the limitation rather than papering over it. Added to both text and voice prompt variants.
+
 ## 1.0.23
 
 - **Read Shodh's Hebbian `strength` field as confidence** — the recall path now uses `mem.strength ?? mem.importance` instead of just `importance`. `importance` is the value the client stored at write time; `strength` is the field Shodh updates on each recall hit per its LTP/Hebbian model. We were reading the static input back as confidence, which is why facts looked frozen at extraction confidence forever despite repeated use. Falls back to `importance` if Shodh's response shape doesn't include `strength`, so behavior is unchanged where the new field isn't present.
