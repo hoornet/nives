@@ -12,7 +12,7 @@ An AI assistant for Home Assistant that **remembers**. One-click install, works 
 - **Persistent memory** — preferences, routines, sensor baselines, device nicknames. Stays across restarts.
 - **Voice control** through HA Assist — ask in plain language, control anything.
 - **Learns your home** — reads your floor plan, areas, and device capabilities so it always knows which room a light is in.
-- **Your choice of brain** — use our hosted Cloud (easiest, no setup) or bring your own API key (Anthropic, OpenAI, Ollama).
+- **Your choice of brain** — use our hosted Cloud (recommended, fully supported) or BYOK with your own API key (advanced; for full local/custom-model setups, see [home-mind](https://github.com/hoornet/home-mind), the open-source project under the hood).
 - **Privacy-respecting** — memories live on your HA machine, never leave your network.
 
 ## Install
@@ -28,12 +28,12 @@ The add-on will auto-register as a conversation agent — pick it in **Settings 
 
 HomeMind PRO ships with two modes. Pick one in the add-on's **Configuration** tab.
 
-| Mode | Who it's for | Setup |
+| Mode | Who it's for | Caveats |
 |---|---|---|
-| **Cloud** | You just want it to work | Sign up at [homemindpro.com](https://homemindpro.com), paste the key we send you |
-| **BYOK** | You already have Anthropic / OpenAI / Ollama credentials | Paste your own API key |
+| **Cloud** | You want a curated, supported setup | Sign up at [homemindpro.com](https://homemindpro.com), paste the key we send you. We pick the model, we test it, we support it. |
+| **BYOK** | You're comfortable picking models and debugging | Best-effort. Your model **must** support function-calling. Memory extraction quality varies by model. For deeper local/Ollama setups, use [home-mind OSS](https://github.com/hoornet/home-mind) — it's purpose-built for that. |
 
-Both modes use the exact same on-device server and memory — the only difference is where LLM requests go. No lock-in. Switch any time.
+Both modes use the same on-device server and memory; only the LLM endpoint differs. Cloud is curated and tested. BYOK quality depends entirely on the model you pick.
 
 ## Docs
 

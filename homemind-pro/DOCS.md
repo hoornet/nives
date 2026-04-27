@@ -19,7 +19,7 @@ HomeMind PRO bundles two services in one add-on:
 
 ---
 
-## Cloud Mode (easiest setup)
+## Cloud Mode (recommended)
 
 Use HomeMind PRO's managed AI service. You get a monthly token budget — no API key management, no surprise bills.
 
@@ -44,6 +44,13 @@ Use HomeMind PRO's managed AI service. You get a monthly token budget — no API
 ## BYOK Mode (Bring Your Own Key)
 
 Use your own API key from any supported provider. Your data goes directly to the provider — no middleman.
+
+> **Important:** BYOK is best-effort and not actively supported. Two requirements must hold or chat will fail:
+>
+> 1. Your selected model **must** support function/tool calling. Models without it return HTTP 404 ("No endpoints found that support tool use").
+> 2. Memory extraction quality varies by model — some small open-weight models may not store facts reliably.
+>
+> For deep local/Ollama setups or custom-model work, the open-source [home-mind](https://github.com/hoornet/home-mind) project is the right tool. The HomeMind PRO add-on is optimised for our Cloud service.
 
 ### Setup
 

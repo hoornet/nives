@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.25
+
+- **Honest BYOK framing in docs and UI** — the README, DOCS, and HA config UI no longer suggest BYOK is easy or supported the same way Cloud is. "Easiest setup" framing is gone; Cloud is now explicitly the curated/supported path, BYOK is labelled best-effort. The DOCS BYOK section now leads with two upfront requirements: the selected model **must** support function/tool calling (or chat fails with the provider's "No endpoints found that support tool use" 404), and memory extraction quality varies by model. Users wanting deep local/Ollama setups are pointed at the open-source [home-mind](https://github.com/hoornet/home-mind) project, which is purpose-built for that. No code change — documentation and HA UI strings only. Driven by a real user mistaking BYOK as "just working" out of the box.
+
 ## 1.0.24
 
 - **Stop executing time-anchored requests immediately** — when a user said "turn on the kitchen lights at 20h", the assistant was reaching for `call_service` right away and ignoring the time anchor, then offering to set up an automation through the HA UI as an afterthought. The system prompt now has a `SCHEDULED / RECURRING ACTIONS` section that tells the LLM not to `call_service` when the request includes a time anchor (`at 20h`, `every evening`, `tomorrow`, `daily`, `when X happens`), and instead acknowledge the scheduled intent and save it as a remembered preference until automation creation is supported. Honest about the limitation rather than papering over it. Added to both text and voice prompt variants.
