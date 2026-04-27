@@ -45,7 +45,8 @@ export class OpenAIChatEngine implements IChatEngine {
       baseURL: config.openaiBaseUrl,
       defaultHeaders: {
         "HTTP-Referer": "https://homemindpro.com",
-        "X-Title": "HomeMind PRO",
+        "X-OpenRouter-Title": "HomeMind PRO",
+        "X-OpenRouter-Categories": "personal-agent",
       },
     });
     this.memory = memory;

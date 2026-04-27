@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.26
+
+- Behind-the-scenes maintenance update. No change to how the add-on works — Cloud and BYOK behave exactly as before.
+
 ## 1.0.25
 
 - **Honest BYOK framing in docs and UI** — the README, DOCS, and HA config UI no longer suggest BYOK is easy or supported the same way Cloud is. "Easiest setup" framing is gone; Cloud is now explicitly the curated/supported path, BYOK is labelled best-effort. The DOCS BYOK section now leads with two upfront requirements: the selected model **must** support function/tool calling (or chat fails with the provider's "No endpoints found that support tool use" 404), and memory extraction quality varies by model. Users wanting deep local/Ollama setups are pointed at the open-source [home-mind](https://github.com/hoornet/home-mind) project, which is purpose-built for that. No code change — documentation and HA UI strings only. Driven by a real user mistaking BYOK as "just working" out of the box.
