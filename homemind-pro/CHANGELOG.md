@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.27
+
+- **Memory layer actually upgraded to Shodh-Memory v0.2.0.** v1.0.20's CHANGELOG announced this upgrade, but a build-configuration mismatch caused every CI build since then to keep shipping v0.1.91 in the actual image. This release corrects that — production now gets the v0.2.0 binary the codebase has been pinning all along. v0.2.0 brings entity salience, NER-based filtering, curvature-weighted retrieval, glacial exponential decay, and the MCP orphan-process fix. Existing memory data migrates automatically thanks to dual-decode (postcard + legacy bincode) on read paths — no user action needed.
+
 ## 1.0.26
 
 - Behind-the-scenes maintenance update. No change to how the add-on works — Cloud and BYOK behave exactly as before.

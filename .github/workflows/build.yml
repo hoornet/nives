@@ -63,7 +63,7 @@ jobs:
             ghcr.io/hoornet/homemind-pro-${{ matrix.arch }}:latest
           build-args: |
             S6_OVERLAY_VERSION=3.2.0.2
-            SHODH_VERSION=v0.1.91
+            SHODH_VERSION=v0.2.0
             NODE_MAJOR=22
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
