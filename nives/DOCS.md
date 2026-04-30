@@ -1,35 +1,37 @@
-# HomeMind PRO
+# Nives
 
 AI assistant with cognitive memory for Home Assistant. Talk to your smart home naturally — it remembers your preferences, understands your devices, and gets smarter over time.
+
+> _Previously known as **HomeMind PRO**. See the [v2.0.0 changelog](CHANGELOG.md) for migration notes._
 
 ## Quick Start
 
 1. Install this add-on
 2. Choose your LLM mode: **Cloud** or **BYOK** (see sections below)
 3. Start the add-on
-4. Go to **Settings > Voice assistants** and select **HomeMind PRO** as your conversation agent
+4. Go to **Settings > Voice assistants** and select **Nives** as your conversation agent
 5. Talk to your home via Assist!
 
 ## How It Works
 
-HomeMind PRO bundles two services in one add-on:
+Nives bundles two services in one add-on:
 
-- **HomeMind PRO Server** — AI conversation engine that understands your smart home. Connects to Home Assistant automatically — no URL or token needed.
+- **Nives Server** — AI conversation engine that understands your smart home. Connects to Home Assistant automatically — no URL or token needed.
 - **Shodh Memory** — Cognitive memory system with semantic search. Remembers your preferences, routines, and device configurations across conversations.
 
 ---
 
 ## Cloud Mode (recommended)
 
-Use HomeMind PRO's managed AI service. You get a monthly token budget — no API key management, no surprise bills.
+Use Nives Cloud — a managed AI service with a monthly token budget. No API key management, no surprise bills.
 
 ### Setup
 
-1. Sign up at [homemindpro.com](https://homemindpro.com) and choose a tier (Starter, Standard, or Advanced)
-2. Copy your **HomeMind PRO API Key** from your dashboard
+1. Sign up at [nives.house](https://nives.house) and choose a tier (Starter, Standard, or Advanced)
+2. Copy your **Nives API Key** from your dashboard
 3. In the add-on Configuration tab:
    - Set **LLM Mode** to `cloud`
-   - Paste your key into **HomeMind PRO API Key**
+   - Paste your key into **Nives API Key**
 4. Save and start the add-on
 
 ### Cloud Configuration
@@ -37,7 +39,7 @@ Use HomeMind PRO's managed AI service. You get a monthly token budget — no API
 | Option | Description |
 |--------|-------------|
 | LLM Mode | Set to `cloud` |
-| HomeMind PRO API Key | Your key from homemindpro.com |
+| Nives API Key | Your key from nives.house |
 
 ---
 
@@ -50,7 +52,7 @@ Use your own API key from any supported provider. Your data goes directly to the
 > 1. Your selected model **must** support function/tool calling. Models without it return HTTP 404 ("No endpoints found that support tool use").
 > 2. Memory extraction quality varies by model — some small open-weight models may not store facts reliably.
 >
-> For deep local/Ollama setups or custom-model work, the open-source [home-mind](https://github.com/hoornet/home-mind) project is the right tool. The HomeMind PRO add-on is optimised for our Cloud service.
+> For deep local/Ollama setups or custom-model work, the open-source [home-mind](https://github.com/hoornet/home-mind) project is the right tool. The Nives add-on is optimised for Nives Cloud.
 
 ### Setup
 
@@ -83,9 +85,9 @@ Use your own API key from any supported provider. Your data goes directly to the
 
 ## Companion Integration
 
-The **HomeMind PRO** conversation agent integration is automatically installed when the add-on starts. No manual installation needed.
+The **Nives** conversation agent integration is automatically installed when the add-on starts. No manual installation needed.
 
-After the add-on starts, go to **Settings > Voice assistants** and select **HomeMind PRO** as your conversation agent.
+After the add-on starts, go to **Settings > Voice assistants** and select **Nives** as your conversation agent.
 
 If the integration doesn't appear, restart Home Assistant Core once — the add-on installs it on startup.
 
@@ -111,11 +113,11 @@ All data stays on your device:
 ## Troubleshooting
 
 - **Add-on won't start**: Check the Log tab. Most common issue: missing or invalid API key.
-- **HomeMind PRO doesn't appear in Voice assistants**: Restart Home Assistant Core once after the add-on starts.
+- **Nives doesn't appear in Voice assistants**: Restart Home Assistant Core once after the add-on starts.
 - **Slow responses**: LLM responses can take 10–60 seconds depending on the model and tool usage. This is normal.
 - **High memory usage**: Shodh Memory has a known memory leak. The add-on includes a watchdog that restarts it automatically when it exceeds 512 MB.
 
 ## Support
 
-- [GitHub Issues](https://github.com/hoornet/homemind-pro-addon/issues)
-- [homemindpro.com](https://homemindpro.com)
+- [GitHub Issues](https://github.com/hoornet/nives/issues)
+- [nives.house](https://nives.house)

@@ -1,13 +1,13 @@
 {
-  "domain": "home_mind",
-  "name": "HomeMind PRO",
+  "domain": "nives",
+  "name": "Nives",
   "codeowners": ["@hoornet"],
   "config_flow": true,
   "after_dependencies": ["hassio"],
   "dependencies": ["conversation"],
-  "documentation": "https://github.com/hoornet/home-mind",
+  "documentation": "https://github.com/hoornet/nives",
   "integration_type": "service",
   "iot_class": "local_polling",
   "requirements": ["aiohttp>=3.8.0"],
-  "version": "1.0.28"
+  "version": "2.0.0"
 }

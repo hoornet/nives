@@ -1,5 +1,5 @@
-# HomeMind PRO — HA Add-on
-# Bundles home-mind-server (Node.js) + Shodh Memory (Rust) in one container
+# Nives — HA Add-on
+# Bundles the Node.js conversation server + Shodh Memory (Rust) in one container
 # Ubuntu 24.04 base required: Shodh needs glibc 2.38+
 
 # -------------------------------------------------------------------
@@ -49,7 +49,7 @@ RUN mkdir -p /root/.cache/shodh-memory/models/minilm-l6 \
        -o /root/.cache/shodh-memory/models/minilm-l6/tokenizer.json
 
 # -------------------------------------------------------------------
-# Stage 2: Build home-mind-server from vendored source
+# Stage 2: Build the conversation server from vendored source
 # -------------------------------------------------------------------
 FROM node:22-bookworm-slim AS builder
 
@@ -113,13 +113,13 @@ COPY --from=shodh /usr/local/bin/shodh /usr/local/bin/shodh
 COPY --from=shodh /root/.cache/shodh-memory /root/.cache/shodh-memory
 
 # Copy built server from stage 2
-WORKDIR /opt/homemind
+WORKDIR /opt/nives
 COPY --from=builder /build/dist ./dist
 COPY --from=builder /build/node_modules ./node_modules
 COPY --from=builder /build/package.json ./
 
 # Copy s6-overlay service definitions and scripts
-COPY homemind-pro/rootfs /
+COPY nives/rootfs /
 
 # Ensure all scripts are executable
 RUN find /etc/s6-overlay -name 'run' -exec chmod +x {} \; \

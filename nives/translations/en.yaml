@@ -2,15 +2,15 @@ configuration:
   llm_mode:
     name: LLM Mode
     description: >-
-      Choose "cloud" to use HomeMind PRO's managed AI service, or "byok" to bring your own API key.
+      Choose "cloud" to use the managed Nives AI service, or "byok" to bring your own API key.
   cloud:
-    name: "HomeMind PRO Cloud"
+    name: "Nives Cloud"
     description: >-
-      Settings for HomeMind PRO Cloud mode. Get your API key at homemindpro.com.
+      Settings for Nives Cloud mode. Get your API key at nives.house.
     api_key:
-      name: HomeMind PRO API Key
+      name: Nives API Key
       description: >-
-        Your HomeMind PRO API key from homemindpro.com. Required when LLM Mode is "cloud".
+        Your Nives API key from nives.house. Required when LLM Mode is "cloud".
   byok:
     name: "Bring Your Own Key (BYOK)"
     description: >-
@@ -36,7 +36,7 @@ configuration:
   custom_prompt:
     name: Custom Prompt
     description: >-
-      Override the AI assistant's personality and instructions. Leave empty for the default HomeMind PRO persona.
+      Override the AI assistant's personality and instructions. Leave empty for the default Nives persona.
   log_level:
     name: Log Level
     description: >-

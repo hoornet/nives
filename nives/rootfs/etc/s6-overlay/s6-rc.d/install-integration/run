@@ -1,9 +1,9 @@
 #!/command/with-contenv bash
-# Auto-install the Home Mind HA integration (custom component)
+# Auto-install the Nives HA integration (custom component)
 # so users don't need HACS or manual file copying.
 
-SOURCE="/opt/home_mind_integration"
-TARGET="/config/custom_components/home_mind"
+SOURCE="/opt/nives"
+TARGET="/config/custom_components/nives"
 
 if [ ! -d /config ]; then
     echo "[integration] /config not mounted — skipping integration install"
@@ -14,13 +14,13 @@ fi
 NEEDS_UPDATE=false
 if [ ! -d "$TARGET" ]; then
     NEEDS_UPDATE=true
-    echo "[integration] Installing Home Mind integration..."
+    echo "[integration] Installing Nives integration..."
 elif [ -f "$SOURCE/manifest.json" ] && [ -f "$TARGET/manifest.json" ]; then
     SOURCE_VER=$(jq -r '.version' "$SOURCE/manifest.json" 2>/dev/null || echo "")
     TARGET_VER=$(jq -r '.version' "$TARGET/manifest.json" 2>/dev/null || echo "")
     if [ "$SOURCE_VER" != "$TARGET_VER" ]; then
         NEEDS_UPDATE=true
-        echo "[integration] Updating Home Mind integration (${TARGET_VER} → ${SOURCE_VER})..."
+        echo "[integration] Updating Nives integration (${TARGET_VER} → ${SOURCE_VER})..."
     fi
 fi
 
@@ -28,7 +28,7 @@ if [ "$NEEDS_UPDATE" = "true" ]; then
     mkdir -p "$TARGET"
     cp -f "$SOURCE"/*.py "$TARGET/"
     cp -f "$SOURCE"/*.json "$TARGET/"
-    echo "[integration] Home Mind integration installed at $TARGET"
+    echo "[integration] Nives integration installed at $TARGET"
 
     # Restart HA Core so it picks up the new integration files and processes discovery.
     # This only runs on first install or after an integration update.
@@ -42,5 +42,5 @@ if [ "$NEEDS_UPDATE" = "true" ]; then
         echo "[integration] No SUPERVISOR_TOKEN — skipping HA Core restart"
     fi
 else
-    echo "[integration] Home Mind integration is up to date"
+    echo "[integration] Nives integration is up to date"
 fi

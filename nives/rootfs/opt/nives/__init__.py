@@ -1,4 +1,4 @@
-"""Home Mind integration for Home Assistant."""
+"""Nives integration for Home Assistant."""
 from __future__ import annotations
 
 import logging
@@ -16,20 +16,20 @@ PLATFORMS: list[Platform] = [Platform.CONVERSATION]
 
 
 @dataclass
-class HomeMindData:
-    """Runtime data for a HomeMind config entry."""
+class NivesData:
+    """Runtime data for a Nives config entry."""
 
     api_url: str
     api_token: str | None
     user_id: str
 
 
-type HomeMindConfigEntry = ConfigEntry[HomeMindData]
+type NivesConfigEntry = ConfigEntry[NivesData]
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: HomeMindConfigEntry) -> bool:
-    """Set up Home Mind from a config entry."""
-    entry.runtime_data = HomeMindData(
+async def async_setup_entry(hass: HomeAssistant, entry: NivesConfigEntry) -> bool:
+    """Set up Nives from a config entry."""
+    entry.runtime_data = NivesData(
         api_url=entry.data.get(CONF_API_URL, "").rstrip("/"),
         api_token=entry.data.get(CONF_API_TOKEN, "").strip() or None,
         user_id=entry.data.get(CONF_USER_ID, DEFAULT_USER_ID),
@@ -39,11 +39,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeMindConfigEntry) -> 
     return True
 
 
-async def _async_update_listener(hass: HomeAssistant, entry: HomeMindConfigEntry) -> None:
+async def _async_update_listener(hass: HomeAssistant, entry: NivesConfigEntry) -> None:
     """Reload the config entry when options change."""
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: HomeMindConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: NivesConfigEntry) -> bool:
     """Unload a config entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

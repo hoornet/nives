@@ -1,4 +1,4 @@
-"""Conversation agent for Home Mind."""
+"""Conversation agent for Nives."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from homeassistant.helpers import device_registry as dr, intent
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import HomeMindConfigEntry
+from . import NivesConfigEntry
 from .const import (
     API_CHAT_ENDPOINT,
     CONF_CUSTOM_PROMPT,
@@ -30,27 +30,27 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class UsageLimitError(Exception):
-    """Raised when the HomeMind server returns HTTP 402 (usage limit reached)."""
+    """Raised when the Nives server returns HTTP 402 (usage limit reached)."""
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: HomeMindConfigEntry,
+    config_entry: NivesConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up conversation agent from a config entry."""
-    async_add_entities([HomeMindConversationAgent(hass, config_entry)])
+    async_add_entities([NivesConversationAgent(hass, config_entry)])
 
 
-class HomeMindConversationAgent(ConversationEntity):
-    """Home Mind conversation agent."""
+class NivesConversationAgent(ConversationEntity):
+    """Nives conversation agent."""
 
     _attr_has_entity_name = True
     _attr_name = None  # entity name = device name
     _attr_supported_features = ConversationEntityFeature.CONTROL
-    _attr_translation_key = "home_mind"
+    _attr_translation_key = "nives"
 
-    def __init__(self, hass: HomeAssistant, entry: HomeMindConfigEntry) -> None:
+    def __init__(self, hass: HomeAssistant, entry: NivesConfigEntry) -> None:
         """Initialize the agent."""
         self.hass = hass
         self.entry = entry
@@ -59,8 +59,8 @@ class HomeMindConversationAgent(ConversationEntity):
         self._attr_unique_id = entry.entry_id
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(entry.domain, entry.entry_id)},
-            name="HomeMind PRO",
-            manufacturer="HomeMind PRO",
+            name="Nives",
+            manufacturer="Nives",
             model="AI Assistant",
             entry_type=dr.DeviceEntryType.SERVICE,
         )
@@ -90,34 +90,34 @@ class HomeMindConversationAgent(ConversationEntity):
                 conversation_id=conversation_id,
             )
         except UsageLimitError:
-            _LOGGER.warning("HomeMind PRO usage limit reached")
+            _LOGGER.warning("Nives usage limit reached")
             await self.hass.services.async_call(
                 "persistent_notification",
                 "create",
                 {
-                    "title": "HomeMind PRO — Usage Limit Reached",
+                    "title": "Nives — Usage Limit Reached",
                     "message": (
                         "Your monthly usage allowance is depleted. "
-                        "Visit homemind.veganostr.com to renew or upgrade."
+                        "Visit nives.house to renew or upgrade."
                     ),
-                    "notification_id": "homemind_usage_limit",
+                    "notification_id": "nives_usage_limit",
                 },
             )
             intent_response = intent.IntentResponse(language=user_input.language)
             intent_response.async_set_speech(
                 "Your monthly token allowance is depleted. "
-                "Please visit homemind.veganostr.com to renew or upgrade."
+                "Please visit nives.house to renew or upgrade."
             )
             return ConversationResult(
                 response=intent_response,
                 conversation_id=conversation_id,
             )
         except (aiohttp.ClientError, TimeoutError) as err:
-            _LOGGER.error("Error calling Home Mind API: %s", err)
+            _LOGGER.error("Error calling Nives API: %s", err)
             intent_response = intent.IntentResponse(language=user_input.language)
             intent_response.async_set_error(
                 intent.IntentResponseErrorCode.UNKNOWN,
-                "Sorry, I couldn't reach the HomeMind server right now.",
+                "Sorry, I couldn't reach the Nives server right now.",
             )
             return ConversationResult(
                 response=intent_response,
@@ -139,7 +139,7 @@ class HomeMindConversationAgent(ConversationEntity):
         user_id: str,
         conversation_id: str | None,
     ) -> str:
-        """Call the Home Mind API."""
+        """Call the Nives API."""
         url = f"{api_url}{API_CHAT_ENDPOINT}"
 
         payload: dict = {

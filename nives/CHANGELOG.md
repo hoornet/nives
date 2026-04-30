@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.0 — renamed to Nives
+
+The add-on previously known as **HomeMind PRO** is now called **Nives**. Same product, same memory layer, same modes — new identity that's easier to address by voice and gives the add-on its own name (separate from the open-source `home-mind` project it grew out of).
+
+**What changes for you:**
+
+- **Clean install required.** Because the underlying add-on slug changed, v2.0.0 installs as a brand-new add-on alongside the older HomeMind PRO rather than replacing it. To switch over: install Nives from the same repository, copy your configuration across, then uninstall the old HomeMind PRO. Memories and conversation history don't carry across — you start fresh on Nives.
+- **New home on the web: [nives.house](https://nives.house).** Cloud sign-up, your account dashboard, and these docs all live there now. The old `homemindpro.com` redirects to the new site, so any links you've saved keep working.
+- **Same behaviour, new labels everywhere.** Cloud and BYOK modes work identically to v1. The integration domain, conversation agent name, s6 service names, and every UI string now read "Nives" instead of "HomeMind PRO".
+
+About the name: *Nives* is a Slovenian female name, from Latin *nives* — "snows". Pronounced **NEE-ves**.
+
 ## 1.0.28
 
 - More forgiving memory-layer parsing. The fact extractor now tolerates trailing text after JSON, single-fact responses (some AI models return either of those instead of strict JSON arrays), and a few related variants. If you've ever noticed the assistant not remembering something you clearly told it, this should reduce those misses.

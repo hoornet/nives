@@ -1,6 +1,6 @@
-"""Constants for Home Mind integration."""
+"""Constants for Nives integration."""
 
-DOMAIN = "home_mind"
+DOMAIN = "nives"
 CONF_API_URL = "api_url"
 CONF_API_TOKEN = "api_token"
 CONF_USER_ID = "user_id"
@@ -13,4 +13,4 @@ DEFAULT_TIMEOUT = 120  # Claude with tool use can take 60+ seconds
 API_CHAT_ENDPOINT = "/api/chat"
 API_HEALTH_ENDPOINT = "/api/health"
 
-CLOUD_SIGNUP_URL = "https://homemind.veganostr.com"
+CLOUD_SIGNUP_URL = "https://nives.house"

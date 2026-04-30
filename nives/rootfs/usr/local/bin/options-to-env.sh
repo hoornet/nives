@@ -35,7 +35,7 @@ LOG_LEVEL=$(jq -r '.log_level // "info"' "$OPTIONS")
 
 # --- LLM configuration ---
 if [ "$LLM_MODE" = "cloud" ]; then
-    # Cloud mode: user's managed OpenRouter key (created via HomeMind Cloud)
+    # Cloud mode: user's managed OpenRouter key (created via Nives Cloud)
     write_env "LLM_PROVIDER" "openai"
     write_env "OPENAI_API_KEY" "$PROXY_KEY"
     write_env "OPENAI_BASE_URL" "https://openrouter.ai/api/v1"

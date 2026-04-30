@@ -2,38 +2,38 @@
   "config": {
     "step": {
       "user": {
-        "title": "Configure HomeMind PRO",
-        "description": "Enter the URL of your Home Mind API server. Don't have a server? Get a hosted one at [{cloud_url}]({cloud_url}).",
+        "title": "Configure Nives",
+        "description": "Enter the URL of your Nives API server. Don't have a server? Get a hosted one at [{cloud_url}]({cloud_url}).",
         "data": {
           "api_url": "API URL",
           "api_token": "API Token (optional)",
           "user_id": "Default User ID (optional)"
         },
         "data_description": {
-          "api_token": "Required for Home Mind Cloud. Leave empty for self-hosted setups without authentication.",
+          "api_token": "Required for cloud-hosted Nives. Leave empty for self-hosted setups without authentication.",
           "user_id": "Used to namespace memories per user. Leave as 'default' unless you have multiple users."
         }
       },
       "hassio_confirm": {
-        "title": "HomeMind PRO Detected",
-        "description": "The HomeMind PRO add-on has been detected. Would you like to set up Home Mind?"
+        "title": "Nives Detected",
+        "description": "The Nives add-on has been detected. Would you like to set it up?"
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the Home Mind API. Make sure it's running and accessible.",
-      "invalid_auth": "Invalid API token. Check your token on the Home Mind Cloud dashboard.",
+      "cannot_connect": "Failed to connect to the Nives API. Make sure it's running and accessible.",
+      "invalid_auth": "Invalid API token. Check your token on the Nives dashboard.",
       "unknown": "Unexpected error occurred."
     },
     "abort": {
-      "already_configured": "Home Mind is already configured.",
-      "cannot_connect": "Could not connect to the HomeMind PRO add-on. Make sure it's running."
+      "already_configured": "Nives is already configured.",
+      "cannot_connect": "Could not connect to the Nives add-on. Make sure it's running."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Home Mind Options",
-        "description": "Configure optional settings for Home Mind.",
+        "title": "Nives Options",
+        "description": "Configure optional settings for Nives.",
         "data": {
           "custom_prompt": "Custom system prompt"
         },
@@ -45,8 +45,8 @@
   },
   "entity": {
     "conversation": {
-      "home_mind": {
-        "name": "HomeMind PRO"
+      "nives": {
+        "name": "Nives"
       }
     }
   }

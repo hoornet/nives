@@ -1,9 +1,9 @@
-name: "HomeMind PRO"
-version: "1.0.28"
-slug: "homemind_pro"
+name: "Nives"
+version: "2.0.0"
+slug: "nives"
 description: "AI assistant with cognitive memory for Home Assistant"
-url: "https://github.com/hoornet/homemind-pro-addon"
-image: ghcr.io/hoornet/homemind-pro-{arch}
+url: "https://github.com/hoornet/nives"
+image: ghcr.io/hoornet/nives-{arch}
 arch:
   - amd64
   - aarch64
@@ -15,7 +15,7 @@ homeassistant_api: true
 hassio_api: true
 auth_api: true
 discovery:
-  - home_mind
+  - nives
 map:
   - addon_config:rw
   - config:rw

@@ -1,4 +1,4 @@
-"""Config flow for Home Mind integration."""
+"""Config flow for Nives integration."""
 
 from __future__ import annotations
 
@@ -76,14 +76,14 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
                         f"Token verification returned status {response.status}"
                     )
     except aiohttp.ClientError as err:
-        _LOGGER.error("Error connecting to Home Mind API: %s", err)
+        _LOGGER.error("Error connecting to Nives API: %s", err)
         raise CannotConnect from err
 
-    return {"title": "HomeMind PRO"}
+    return {"title": "Nives"}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Home Mind."""
+    """Handle a config flow for Nives."""
 
     VERSION = 1
 
@@ -101,7 +101,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_hassio(
         self, discovery_info: HassioServiceInfo
     ) -> ConfigFlowResult:
-        """Handle discovery from HomeMind PRO add-on."""
+        """Handle discovery from the Nives add-on."""
         config = discovery_info.config
         host = config.get("host", "")
         port = config.get("port", 3100)
@@ -109,7 +109,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         self._hassio_discovery = {"host": host, "port": port}
 
-        await self.async_set_unique_id(f"homemind_addon_{host}")
+        await self.async_set_unique_id(f"nives_addon_{host}")
         self._abort_if_unique_id_configured(updates={CONF_API_URL: api_url})
 
         return await self.async_step_hassio_confirm()
@@ -117,13 +117,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_hassio_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Confirm HomeMind PRO add-on discovery."""
+        """Confirm Nives add-on discovery."""
         if user_input is not None:
             assert self._hassio_discovery is not None
             host = self._hassio_discovery["host"]
             port = self._hassio_discovery["port"]
             return self.async_create_entry(
-                title="HomeMind PRO",
+                title="Nives",
                 data={
                     CONF_API_URL: f"http://{host}:{port}",
                     CONF_USER_ID: DEFAULT_USER_ID,
@@ -160,7 +160,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class OptionsFlow(config_entries.OptionsFlow):
-    """Handle options for Home Mind."""
+    """Handle options for Nives."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None

@@ -34,7 +34,7 @@ jobs:
       - name: Get add-on version
         id: version
         run: |
-          VERSION=$(grep '^version:' homemind-pro/config.yaml | awk '{print $2}' | tr -d '"')
+          VERSION=$(grep '^version:' nives/config.yaml | awk '{print $2}' | tr -d '"')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
@@ -55,12 +55,12 @@ jobs:
         uses: docker/build-push-action@v6.15.0
         with:
           context: .
-          file: ./homemind-pro/Dockerfile
+          file: ./nives/Dockerfile
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ghcr.io/hoornet/homemind-pro-${{ matrix.arch }}:${{ steps.version.outputs.version }}
-            ghcr.io/hoornet/homemind-pro-${{ matrix.arch }}:latest
+            ghcr.io/hoornet/nives-${{ matrix.arch }}:${{ steps.version.outputs.version }}
+            ghcr.io/hoornet/nives-${{ matrix.arch }}:latest
           build-args: |
             S6_OVERLAY_VERSION=3.2.0.2
             SHODH_VERSION=v0.2.0

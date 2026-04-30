@@ -12,8 +12,8 @@ export class OpenAIFactExtractor implements IFactExtractor {
       apiKey,
       baseURL: baseUrl,
       defaultHeaders: {
-        "HTTP-Referer": "https://homemindpro.com",
-        "X-OpenRouter-Title": "HomeMind PRO",
+        "HTTP-Referer": "https://nives.house",
+        "X-OpenRouter-Title": "Nives",
         "X-OpenRouter-Categories": "personal-agent",
       },
     });
