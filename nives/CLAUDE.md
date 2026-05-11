@@ -18,18 +18,18 @@ This repo is **AGPL-3.0**. The server code in `server/` is a **hard fork** of `h
 
 | Repo | License | Visibility | Relationship |
 |------|---------|------------|-------------|
-| `nives` (was `homemind-pro-addon`) | AGPL-3.0 | **Public** | **This repo** — the Nives HA add-on, including the forked conversation server |
+| `nives` | AGPL-3.0 | **Public** | **This repo** — the Nives HA add-on, including the forked conversation server |
 | `home-mind` | AGPL-3.0 | **Public** | Historic origin of `server/` code. **Now fully independent** — no sync in either direction |
-| `home-mind-hacs` | AGPL-3.0 | **Public** | LEGACY — integration now lives in this repo's `rootfs/` |
-| `home-mind-cloud` | Proprietary | **Private** | Cloud signup/billing for Nives Cloud subscribers |
-| `home-mind-app` | Proprietary | **Private** | Mobile/PWA frontend (rename pending — will eventually share Nives identity) |
-| `home-mind-proxy` | Proprietary | **Private** | LEGACY — replaced by direct OpenRouter integration |
+| `home-mind-cloud` | Proprietary | **Private** | Cloud signup/billing for Nives Cloud subscribers (repo rename to `nives-cloud` deferred — needs VPS coordination) |
+| `nives-app` | Proprietary | **Private** | Closed-source mobile/PWA frontend for Nives subscribers (Flutter package id `app.nives.assistant`) |
+| `home-mind-hacs` (Legacy) | AGPL-3.0 | **Public** | Integration now ships inside this addon's `rootfs/`; HACS repo kept for archive. Local copy under `homemind-projects/Legacy/` |
+| `home-mind-proxy` (Legacy) | n/a | n/a | Replaced by direct OpenRouter integration; GitHub repo doesn't exist anymore. Local copy under `homemind-projects/Legacy/` |
 
 **Critical rules:**
 - Never add proprietary code from closed-source repos
 - `server/` is a **hard fork**, not a vendored mirror. Apply fixes here directly. Do NOT cherry-pick from `home-mind` on autopilot — the two products will diverge intentionally, and cross-syncing guarantees mysterious drift bugs (one already happened: the reasoning-model fact extractor fix landed in OSS but took days to reach the paid product)
 - A fix relevant to both products must be applied in each, with a clear reason each time
-- Do NOT rename references to `home-mind`, `home-mind-server`, `home-mind-cloud`, `home-mind-app`, `home-mind-hacs`, or `home-mind-proxy` — those are sister-project repository identities that stay distinct from the Nives addon brand
+- Do NOT rename references to `home-mind` or `home-mind-server` (npm package + source directory) — those are the OSS sister project and its internal naming, which stays distinct from the Nives addon brand by design. `home-mind-cloud` also stays for now (Phase 3 of the rename is deferred)
 - To update server code: edit `server/src/home-mind-server/` directly in this repo
 
 ## Architecture
@@ -195,6 +195,7 @@ The add-on has its own semver, independent of the server version. CHANGELOG note
 ## Related Projects (on this machine)
 
 - `/home/hoornet/projects/homemind-projects/home-mind` — OSS server source (AGPL, historic origin of the fork)
-- `/home/hoornet/projects/homemind-projects/home-mind-hacs` — Legacy companion HACS integration
 - `/home/hoornet/projects/homemind-projects/home-mind-cloud` — Nives Cloud signup/billing (proprietary)
-- `/home/hoornet/projects/homemind-projects/home-mind-app` — Mobile/PWA frontend (proprietary)
+- `/home/hoornet/projects/homemind-projects/nives-app` — Closed-source mobile/PWA frontend (renamed from `home-mind-app` 2026-05-11)
+- `/home/hoornet/projects/homemind-projects/Legacy/home-mind-hacs` — archived companion HACS integration
+- `/home/hoornet/projects/homemind-projects/Legacy/home-mind-proxy` — archived OR proxy
