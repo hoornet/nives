@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.2
+
+- Fixed a history-lookup bug that prevented Nives from answering "today's solar production" style questions. When the AI included its local timezone (e.g. `+02:00`) in a history query, the request was silently rejected with a 400 from Home Assistant. Conversations that depended on history would then loop, give up, or fall back to less-accurate live readings. Queries about energy production, past events, and "when did X happen?" now resolve cleanly on the first try.
+
 ## 2.0.1
 
 - Refreshed the bundled server's dependencies to pick up upstream security patches (multer, undici, and a few transitive packages). Nives behaves exactly the same — this is a quiet housekeeping release that keeps the image current.
