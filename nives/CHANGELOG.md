@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.1
+
+- Refreshed the bundled server's dependencies to pick up upstream security patches (multer, undici, and a few transitive packages). Nives behaves exactly the same — this is a quiet housekeeping release that keeps the image current.
+
 ## 2.0.0 — renamed to Nives
 
 The add-on previously known as **HomeMind PRO** is now called **Nives**. Same product, same memory layer, same modes — new identity that's easier to address by voice and gives the add-on its own name (separate from the open-source `home-mind` project it grew out of).
