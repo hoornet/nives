@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.5
+
+- **More accurate "when did X start today?" answers.** Previously, asking when solar production or any rate/power/flow sensor started today could return a pre-dawn time (e.g. "4 AM") that was really just the inverter's idle current or sensor noise. Nives now ignores those near-zero readings and either cites when the value first crossed a meaningful fraction of today's peak or describes the ramp ("ramped up through the morning") — whichever fits the data better. Works the same way regardless of season, latitude, or sensor type.
+- **Correct "today" range on history queries.** When the AI asked Home Assistant for "today's" data, it was using midnight UTC instead of your local midnight — so the first hours of your actual local day were missing from the query window. Nives now hands the AI your local midnight (in UTC form) directly, so "how much did the solar make today?" or "any motion since midnight?" line up with the day you're actually living in, regardless of your timezone.
+
 ## 2.0.4
 
 - **Better answers for "how's solar production?", "when did X start?", and "any motion at the gate?" style questions.** Nives's system prompt now pushes the AI to search Home Assistant for entities before saying "I can't help" — so questions about systems that weren't in the initial cheat sheet (solar, energy meters, security devices, anything in HA) get answered after a quick search instead of being declined.
