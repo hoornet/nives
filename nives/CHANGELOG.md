@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.3
+
+- **Helpful error messages instead of "I received your request but got no response."** When the AI fails to produce an answer, Nives now tells you *why* — whether the response was cut off at the token limit, blocked by the provider's content filter, or the model just returned nothing usable. Previously every failure showed the same generic message regardless of cause, which made diagnosing problems frustrating. The new messages also point you at the specific setting to try next when one applies.
+- **Two new advanced settings for BYOK users running picky local models** (Ollama / LM Studio etc.). If your fact extractor was silently returning nothing, you can now nudge it with `OPENAI_RESPONSE_FORMAT=json_object` (asks the provider for strict JSON output) and `OPENAI_MAX_TOKENS=2048` (raises the output budget). These are passed via the addon's "Server-level environment" config and only affect fact extraction — chat is unaffected. Defaults are unchanged, so existing setups behave the same.
+
 ## 2.0.2
 
 - Fixed a history-lookup bug that prevented Nives from answering "today's solar production" style questions. When the AI included its local timezone (e.g. `+02:00`) in a history query, the request was silently rejected with a 400 from Home Assistant. Conversations that depended on history would then loop, give up, or fall back to less-accurate live readings. Queries about energy production, past events, and "when did X happen?" now resolve cleanly on the first try.
