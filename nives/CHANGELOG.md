@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.4
+
+- **Better answers for "how's solar production?", "when did X start?", and "any motion at the gate?" style questions.** Nives's system prompt now pushes the AI to search Home Assistant for entities before saying "I can't help" — so questions about systems that weren't in the initial cheat sheet (solar, energy meters, security devices, anything in HA) get answered after a quick search instead of being declined.
+- **Smarter handling of "today's X" questions.** Nives now knows that the current state of a `*_current_power` sensor is the live reading, not the day's total — so asking "how much did the solar make today?" pulls daily history, not whatever the panels are doing right now.
+- **No more "solar started at 4 AM" mistakes** on noisy sensors. Pre-dawn sensor noise on solar inverters or other cumulative sensors is now treated as noise — Nives picks a meaningful threshold or describes the ramp rather than naming the first non-zero reading.
+
 ## 2.0.3
 
 - **Helpful error messages instead of "I received your request but got no response."** When the AI fails to produce an answer, Nives now tells you *why* — whether the response was cut off at the token limit, blocked by the provider's content filter, or the model just returned nothing usable. Previously every failure showed the same generic message regardless of cause, which made diagnosing problems frustrating. The new messages also point you at the specific setting to try next when one applies.
