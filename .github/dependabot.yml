@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # Bundled conversation server (hard fork of home-mind) — the package that
+  # carried the uuid/qs/express advisories. This is the high-value target.
+  - package-ecosystem: "npm"
+    directory: "/server/src/home-mind-server"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # Roll routine non-security bumps into one PR to cut review noise.
+      # Security updates are always opened individually regardless of grouping.
+      server-deps:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions used by the multi-arch build / CI / GHCR publish workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci(deps)"
+
+  # Note: the bundled HA integration's only Python dep (aiohttp) is declared in
+  # HA's manifest.json, which Dependabot's pip ecosystem can't parse — so there
+  # is intentionally no pip entry. Add one here if a requirements.txt/pyproject
+  # is ever introduced.

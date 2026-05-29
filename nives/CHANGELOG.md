@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.6
+
+- Refreshed the bundled server's dependencies to pick up upstream security patches (uuid, express, and the transitive `qs` package). Nives behaves exactly the same — this is a quiet housekeeping release that keeps the image current.
+
 ## 2.0.5
 
 - **More accurate "when did X start today?" answers.** Previously, asking when solar production or any rate/power/flow sensor started today could return a pre-dawn time (e.g. "4 AM") that was really just the inverter's idle current or sensor noise. Nives now ignores those near-zero readings and either cites when the value first crossed a meaningful fraction of today's peak or describes the ramp ("ramped up through the morning") — whichever fits the data better. Works the same way regardless of season, latitude, or sensor type.
