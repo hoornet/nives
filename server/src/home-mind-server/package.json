@@ -15,13 +15,13 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.52.0",
-    "better-sqlite3": "^12.6.2",
+    "@anthropic-ai/sdk": "^0.100.1",
+    "better-sqlite3": "^12.10.0",
     "cors": "^2.8.6",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.4.2",
     "express": "^4.22.2",
     "multer": "^2.0.2",
-    "openai": "^6.18.0",
+    "openai": "^6.39.1",
     "undici": "^8.3.0",
     "uuid": "^14.0.0",
     "zod": "^3.24.0"
@@ -30,11 +30,11 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
-    "@types/multer": "^2.0.0",
+    "@types/multer": "^2.1.0",
     "@types/node": "^22.0.0",
     "@types/uuid": "^11.0.0",
-    "@vitest/coverage-v8": "^4.0.18",
-    "tsx": "^4.19.0",
+    "@vitest/coverage-v8": "^4.1.7",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.0.18"
   },
