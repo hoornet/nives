@@ -178,6 +178,8 @@ describe("createFactExtractor", () => {
       openaiApiKey: "oai-key",
       llmModel: "gpt-4o-mini",
       openaiBaseUrl: "https://proxy.example.com",
+      openaiResponseFormat: "json_object",
+      openaiMaxTokens: 512,
     } as Config;
 
     const extractor = createFactExtractor(config);
@@ -186,11 +188,13 @@ describe("createFactExtractor", () => {
     expect(OpenAIFactExtractorSpy).toHaveBeenCalledWith(
       "oai-key",
       "gpt-4o-mini",
-      "https://proxy.example.com"
+      "https://proxy.example.com",
+      "json_object",
+      512
     );
   });
 
-  it("passes undefined baseUrl when not set", () => {
+  it("passes undefined baseUrl/responseFormat/maxTokens when not set", () => {
     const config = {
       llmProvider: "openai",
       openaiApiKey: "oai-key",
@@ -202,6 +206,8 @@ describe("createFactExtractor", () => {
     expect(OpenAIFactExtractorSpy).toHaveBeenCalledWith(
       "oai-key",
       "gpt-4o-mini",
+      undefined,
+      undefined,
       undefined
     );
   });
@@ -218,7 +224,9 @@ describe("createFactExtractor", () => {
     expect(OpenAIFactExtractorSpy).toHaveBeenCalledWith(
       "ollama",
       "llama3.1",
-      "http://localhost:11434/v1"
+      "http://localhost:11434/v1",
+      undefined,
+      undefined
     );
   });
 
@@ -235,7 +243,9 @@ describe("createFactExtractor", () => {
     expect(OpenAIFactExtractorSpy).toHaveBeenCalledWith(
       "ollama",
       "llama3.1",
-      "http://192.168.1.50:11434/v1"
+      "http://192.168.1.50:11434/v1",
+      undefined,
+      undefined
     );
   });
 });

@@ -11,7 +11,36 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  test:
+    name: Test server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server/src/home-mind-server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          submodules: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/src/home-mind-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
