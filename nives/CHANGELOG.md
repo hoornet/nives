@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.7
+
+- Updated the bundled server's core libraries — including a major refresh of the underlying web framework and the AI client libraries — to keep Nives current and well-supported. Behaviour is unchanged; this is a quiet housekeeping release.
+- Added an automated test suite that now runs on every change, so future updates ship with more confidence.
+
 ## 2.0.6
 
 - Refreshed the bundled server's dependencies to pick up upstream security patches (uuid, express, and the transitive `qs` package). Nives behaves exactly the same — this is a quiet housekeeping release that keeps the image current.
