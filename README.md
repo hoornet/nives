@@ -1,7 +1,7 @@
 # Nives
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
-[![Add-on version](https://img.shields.io/badge/Add--on-2.0.0-brightgreen.svg)](nives/CHANGELOG.md)
+[![Add-on version](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhoornet%2Fnives%2Fmaster%2Fnives%2Fconfig.yaml&query=%24.version&label=Add--on&color=brightgreen)](nives/CHANGELOG.md)
 
 > _Previously known as **HomeMind PRO**. See the [v2.0.0 changelog](nives/CHANGELOG.md) for migration notes._
 
