@@ -18,6 +18,11 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # @types/node tracks the runtime Node (22). Ignore majors so the type
+      # defs don't drift ahead of the runtime (e.g. 24) and surface APIs we lack.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions used by the multi-arch build / CI / GHCR publish workflows.
   - package-ecosystem: "github-actions"

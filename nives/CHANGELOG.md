@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.1
+
+- Routine dependency refresh for the bundled server (including the OpenAI client and test tooling) and the build's CI actions. No change in behaviour — quiet housekeeping.
+
 ## 2.1.0
 
 - **Nives Cloud now manages your AI models for you.** Each plan maps to a curated set of models that we keep current behind the scenes — when we add or refresh a model, your add-on picks it up automatically, with nothing for you to install or configure. If a model is ever briefly unavailable, Nives moves on to the next one in your plan so your assistant keeps working. (BYOK mode is unchanged — you stay in full control of your own model choice.)
