@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.2
+
+- Routine dependency refresh for the bundled server (Anthropic client + Node type definitions). No change in behaviour — quiet housekeeping.
+
 ## 2.1.1
 
 - Routine dependency refresh for the bundled server (including the OpenAI client and test tooling) and the build's CI actions. No change in behaviour — quiet housekeeping.
