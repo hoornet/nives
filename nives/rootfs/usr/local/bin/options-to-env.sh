@@ -39,7 +39,22 @@ if [ "$LLM_MODE" = "cloud" ]; then
     write_env "LLM_PROVIDER" "openai"
     write_env "OPENAI_API_KEY" "$PROXY_KEY"
     write_env "OPENAI_BASE_URL" "https://openrouter.ai/api/v1"
-    write_env "LLM_MODEL" "anthropic/claude-haiku-4.5"
+
+    # Ask Nives Cloud which model preset this key's plan maps to. The cloud
+    # returns @preset/nives-<tier>, so the model lineup is managed server-side
+    # with no add-on update. Bounded + failure-safe: falls back to a working
+    # default if the cloud is briefly unreachable (chat still goes direct to OR).
+    CLOUD_MODEL="@preset/nives-standard"
+    if [ -n "$PROXY_KEY" ]; then
+        RESOLVED=$(curl -fsS --max-time 8 -H "Authorization: Bearer $PROXY_KEY" \
+            "https://nives.house/api/addon/config" 2>/dev/null \
+            | jq -r '.model // ""' 2>/dev/null || true)
+        case "$RESOLVED" in
+            @preset/nives-*) CLOUD_MODEL="$RESOLVED" ;;
+        esac
+        echo "[init] cloud model: ${CLOUD_MODEL}"
+    fi
+    write_env "LLM_MODEL" "$CLOUD_MODEL"
 else
     # BYOK mode: user provides their own API key
     write_env "LLM_PROVIDER" "$LLM_PROVIDER"
