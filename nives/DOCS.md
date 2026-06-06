@@ -27,7 +27,7 @@ Use Nives Cloud — a managed AI service with a monthly token budget. No API key
 
 ### Setup
 
-1. Sign up at [nives.house](https://nives.house) and choose a tier (Starter, Standard, or Advanced)
+1. Sign up at [nives.house](https://nives.house) and choose a plan (Starter, Standard, or Premium)
 2. Copy your **Nives API Key** from your dashboard
 3. In the add-on Configuration tab:
    - Set **LLM Mode** to `cloud`
