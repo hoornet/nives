@@ -15,7 +15,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.100.1",
+    "@anthropic-ai/sdk": "^0.101.0",
     "better-sqlite3": "^12.10.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -31,7 +31,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
     "@types/multer": "^2.1.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.19.20",
     "@types/uuid": "^11.0.0",
     "@vitest/coverage-v8": "^4.1.8",
     "tsx": "^4.22.4",
