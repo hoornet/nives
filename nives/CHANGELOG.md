@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.5
+
+- Fresh new look: Nives now has its own icon and logo — a green snow-crystal mark you'll see in the add-on store and across nives.house. Same Nives under the hood.
+
 ## 2.1.4
 
 - Routine dependency refresh for the bundled server (Anthropic client, esbuild, and supporting libraries). No change in behaviour — quiet housekeeping.
