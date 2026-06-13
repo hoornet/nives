@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.4
+
+- Routine dependency refresh for the bundled server (Anthropic client, esbuild, and supporting libraries). No change in behaviour — quiet housekeeping.
+
 ## 2.1.3
 
 - Refreshed the documentation — a clearer guide to powering Nives (Nives Cloud vs bring-your-own-key) and updated setup instructions. No change to the add-on itself.
