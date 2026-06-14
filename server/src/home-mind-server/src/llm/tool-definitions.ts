@@ -175,6 +175,62 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ["entity_id"],
     },
   },
+  {
+    name: "update_automation",
+    description:
+      "Modify an existing automation — change its trigger, action, name, conditions, or mode. Get the entity_id from list_automations first. Provide ONLY the fields you want to change; everything else is kept as-is. ONLY call this AFTER the user confirms the change. (There is no in-place partial edit of a trigger/action — whatever you pass for a field fully replaces that field.)",
+    parameters: {
+      type: "object",
+      properties: {
+        entity_id: {
+          type: "string",
+          description:
+            "The automation entity_id to modify (e.g. 'automation.living_room_light_off_at_23_00'). Obtain it from list_automations.",
+        },
+        alias: {
+          type: "string",
+          description:
+            "Optional new name. A 'Nives: ' prefix is kept/added automatically — do not include it.",
+        },
+        trigger: {
+          type: "object",
+          description:
+            "Optional replacement trigger (HA trigger object or array). Replaces the existing trigger entirely. Omit to keep the current trigger.",
+        },
+        condition: {
+          type: "object",
+          description:
+            "Optional replacement condition(s) (HA condition object or array). Replaces existing conditions. Omit to keep current.",
+        },
+        action: {
+          type: "object",
+          description:
+            "Optional replacement action(s) (HA action object or array). Replaces the existing action entirely. Use search_entities / list_services first to confirm real entity_ids and service ids. Omit to keep the current action.",
+        },
+        mode: {
+          type: "string",
+          description: "Optional new run mode: 'single', 'restart', 'queued', or 'parallel'.",
+        },
+      },
+      required: ["entity_id"],
+    },
+  },
+  {
+    name: "list_services",
+    description:
+      "List the Home Assistant services (actions) that actually exist, as a map of domain → service names. Optionally filter by domain (e.g. 'notify', 'light'). ALWAYS use this to find the real service id before putting a service into an automation action — especially notify services, which are device-specific (e.g. 'notify.mobile_app_johns_iphone'). NEVER guess or invent service names like 'notify.mobile_app_your_phone'.",
+    parameters: {
+      type: "object",
+      properties: {
+        domain: {
+          type: "string",
+          description:
+            "Optional domain to filter by (e.g. 'notify', 'light', 'script', 'climate'). Omit to list every domain.",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 export function toAnthropicTools(tools: ToolDefinition[]): Anthropic.Tool[] {

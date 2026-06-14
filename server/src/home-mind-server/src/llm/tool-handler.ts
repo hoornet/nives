@@ -1,4 +1,4 @@
-import type { HomeAssistantClient, HistoryEntry } from "../ha/client.js";
+import type { HomeAssistantClient, HistoryEntry, AutomationConfig } from "../ha/client.js";
 import type { IMemoryStore } from "../memory/interface.js";
 import type { IFactExtractor } from "./interface.js";
 import type { ExtractedFact } from "../memory/types.js";
@@ -168,6 +168,50 @@ export async function handleToolCall(
         };
         break;
       }
+
+      case "update_automation": {
+        const entityId = (input.entity_id as string | undefined)?.trim();
+        if (!entityId) {
+          result = { error: "update_automation requires an 'entity_id'." };
+          break;
+        }
+        const automations = await ha.listAutomations();
+        const target = automations.find((a) => a.entity_id === entityId);
+        if (!target) {
+          result = { error: `No automation found with entity_id "${entityId}".` };
+          break;
+        }
+        const configId = target.attributes.id as string | undefined;
+        if (!configId) {
+          result = {
+            error: `Automation "${entityId}" can't be edited via the API — it isn't stored in automations.yaml (UI/YAML-managed).`,
+          };
+          break;
+        }
+        // Overlay only the fields the caller actually provided.
+        const changes: Partial<AutomationConfig> = {};
+        if (input.alias !== undefined) {
+          const a = (input.alias as string).trim();
+          changes.alias = /^nives:\s*/i.test(a) ? a : `Nives: ${a}`;
+        }
+        if (input.trigger !== undefined) changes.trigger = input.trigger;
+        if (input.condition !== undefined) changes.condition = input.condition;
+        if (input.action !== undefined) changes.action = input.action;
+        if (input.mode !== undefined) changes.mode = input.mode as string;
+        const updated = await ha.updateAutomation(configId, changes);
+        result = {
+          success: true,
+          id: updated.id,
+          entity_id: updated.entity_id,
+          alias: updated.alias,
+          summary: `Updated automation "${updated.alias}" (${updated.entity_id}).`,
+        };
+        break;
+      }
+
+      case "list_services":
+        result = await ha.listServices(input.domain as string | undefined);
+        break;
 
       default:
         result = { error: `Unknown tool: ${toolName}` };

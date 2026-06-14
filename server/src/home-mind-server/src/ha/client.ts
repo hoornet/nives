@@ -297,6 +297,10 @@ export class HomeAssistantClient {
       action: this.toArray(config.action),
     };
 
+    // Reject actions that reference non-existent services (e.g. a guessed
+    // notify.mobile_app_* placeholder) before writing a broken automation.
+    await this.validateActionServices(body.action);
+
     try {
       await this.fetch(`/api/config/automation/config/${id}`, {
         method: "POST",
@@ -343,5 +347,139 @@ export class HomeAssistantClient {
       // Fall through to the predicted slug below.
     }
     return `automation.${this.slugify(alias)}`;
+  }
+
+  /** Read an automation's stored config by its config id (the value in attributes.id). */
+  async getAutomationConfig(id: string): Promise<Record<string, unknown>> {
+    return this.fetch<Record<string, unknown>>(`/api/config/automation/config/${id}`);
+  }
+
+  /**
+   * Update an existing automation: read its current config, overlay only the
+   * provided fields, validate service references, write back to the same id,
+   * and reload. Returns the (possibly changed) authoritative entity_id.
+   */
+  async updateAutomation(
+    id: string,
+    changes: Partial<AutomationConfig>
+  ): Promise<CreatedAutomation> {
+    const current = await this.getAutomationConfig(id);
+    const merged = {
+      id,
+      alias: changes.alias ?? (current.alias as string),
+      description: changes.description ?? (current.description as string) ?? "",
+      mode: changes.mode ?? (current.mode as string) ?? "single",
+      trigger:
+        changes.trigger !== undefined
+          ? this.toArray(changes.trigger)
+          : this.toArray(current.trigger),
+      condition:
+        changes.condition !== undefined
+          ? this.toArray(changes.condition)
+          : this.toArray(current.condition),
+      action:
+        changes.action !== undefined
+          ? this.toArray(changes.action)
+          : this.toArray(current.action),
+    };
+
+    await this.validateActionServices(merged.action);
+
+    await this.fetch(`/api/config/automation/config/${id}`, {
+      method: "POST",
+      body: JSON.stringify(merged),
+    });
+    await this.callService("automation", "reload");
+
+    return {
+      id,
+      alias: merged.alias,
+      entity_id: await this.resolveAutomationEntityId(id, merged.alias),
+    };
+  }
+
+  /**
+   * List available Home Assistant services (actions), as a map of
+   * domain -> service names. Optionally filter to a single domain.
+   * Use to discover real service ids (e.g. notify.mobile_app_<device>).
+   */
+  async listServices(domain?: string): Promise<Record<string, string[]>> {
+    const raw = await this.fetch<{ domain: string; services: Record<string, unknown> }[]>(
+      "/api/services"
+    );
+    const map: Record<string, string[]> = {};
+    for (const entry of raw) {
+      if (domain && entry.domain !== domain) continue;
+      map[entry.domain] = Object.keys(entry.services ?? {});
+    }
+    return map;
+  }
+
+  /** Build the set of all known "domain.service" ids. */
+  private async getKnownServiceIds(): Promise<Set<string>> {
+    const raw = await this.fetch<{ domain: string; services: Record<string, unknown> }[]>(
+      "/api/services"
+    );
+    const set = new Set<string>();
+    for (const entry of raw) {
+      for (const name of Object.keys(entry.services ?? {})) {
+        set.add(`${entry.domain}.${name}`);
+      }
+    }
+    return set;
+  }
+
+  /**
+   * Throw a descriptive error if an automation action references a service that
+   * doesn't exist (e.g. a guessed notify.mobile_app_* placeholder). Best-effort:
+   * if the service list can't be fetched, validation is skipped (never blocks on
+   * an API hiccup). Templated service names ("{{ ... }}") are skipped.
+   */
+  private async validateActionServices(action: unknown): Promise<void> {
+    const refs = new Set<string>();
+    const collect = (node: unknown): void => {
+      if (Array.isArray(node)) {
+        node.forEach(collect);
+        return;
+      }
+      if (node && typeof node === "object") {
+        for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+          if (
+            (key === "service" || key === "action") &&
+            typeof value === "string" &&
+            /^[a-z_]+\.[a-z0-9_]+$/.test(value) &&
+            !value.includes("{{")
+          ) {
+            refs.add(value);
+          } else {
+            collect(value);
+          }
+        }
+      }
+    };
+    collect(action);
+    if (refs.size === 0) return;
+
+    let known: Set<string>;
+    try {
+      known = await this.getKnownServiceIds();
+    } catch {
+      return; // Can't fetch services → don't block on our own validation failing.
+    }
+
+    const unknown = [...refs].filter((ref) => !known.has(ref));
+    if (unknown.length === 0) return;
+
+    const hints = unknown.map((ref) => {
+      const dom = ref.split(".")[0];
+      const sameDomain = [...known].filter((k) => k.startsWith(`${dom}.`)).slice(0, 12);
+      return sameDomain.length
+        ? `"${ref}" doesn't exist — available ${dom} services: ${sameDomain.join(", ")}`
+        : `"${ref}" doesn't exist and there are no services in the "${dom}" domain`;
+    });
+
+    throw new Error(
+      `The automation action references services that don't exist in this Home Assistant. ${hints.join("; ")}. Use a real service id (call list_services to discover them) — never invent or use placeholder names.`
+    );
   }
 }

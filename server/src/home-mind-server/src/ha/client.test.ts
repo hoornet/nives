@@ -70,6 +70,17 @@ describe("HomeAssistantClient.createAutomation", () => {
           headers: { "Content-Type": "application/json" },
         });
       }
+      // Service validation: GET /api/services (exact, not the reload service call)
+      if (url.endsWith("/api/services")) {
+        return new Response(
+          JSON.stringify([
+            { domain: "light", services: { turn_on: {}, turn_off: {} } },
+            { domain: "automation", services: { reload: {}, trigger: {} } },
+            { domain: "notify", services: { mobile_app_johns_iphone: {}, persistent_notification: {} } },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
       // Read-back: listAutomations() → getEntities("automation") → GET /api/states
       if (url.endsWith("/api/states")) {
         return new Response(
@@ -135,5 +146,104 @@ describe("HomeAssistantClient.createAutomation", () => {
         action: { service: "light.turn_on" },
       })
     ).rejects.toThrow(/config editor/i);
+  });
+
+  it("rejects (without writing) an action that calls a non-existent service", async () => {
+    const ha = new HomeAssistantClient(baseConfig);
+    await expect(
+      ha.createAutomation({
+        alias: "Nives: Notification at noon",
+        trigger: { platform: "time", at: "12:00:00" },
+        action: { service: "notify.mobile_app_your_phone_name", data: { message: "Noon!" } },
+      })
+    ).rejects.toThrow(/don't exist/i);
+
+    // Validation runs before the write — no config POST should have happened.
+    expect(
+      calls.some((c) => /\/api\/config\/automation\/config\//.test(c.url) && c.method === "POST")
+    ).toBe(false);
+  });
+});
+
+describe("HomeAssistantClient.updateAutomation", () => {
+  let calls: { url: string; method: string; body?: string }[];
+
+  beforeEach(() => {
+    calls = [];
+    global.fetch = vi.fn(async (input: unknown, init?: unknown) => {
+      const url = typeof input === "string" ? input : String(input);
+      const opts = (init ?? {}) as { method?: string; body?: string };
+      const method = opts.method ?? "GET";
+      calls.push({ url, method, body: opts.body });
+
+      const configMatch = url.match(/\/api\/config\/automation\/config\/(\d+)$/);
+      if (configMatch && method === "GET") {
+        return new Response(
+          JSON.stringify({
+            id: configMatch[1],
+            alias: "Nives: Living room light off at 23:00",
+            mode: "single",
+            trigger: [{ platform: "time", at: "23:00:00" }],
+            condition: [],
+            action: [{ service: "light.turn_off", target: { entity_id: "light.living_room" } }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (configMatch) {
+        return new Response(JSON.stringify({ result: "ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith("/api/services")) {
+        return new Response(
+          JSON.stringify([
+            { domain: "light", services: { turn_on: {}, turn_off: {} } },
+            { domain: "automation", services: { reload: {} } },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.endsWith("/api/states")) {
+        return new Response(
+          JSON.stringify([
+            {
+              entity_id: "automation.living_room_light_off_at_23_00",
+              state: "on",
+              attributes: { id: "1700000000000" },
+              last_changed: "",
+              last_updated: "",
+            },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+  });
+
+  it("reads current config, overlays only changed fields, writes back to the same id", async () => {
+    const ha = new HomeAssistantClient(baseConfig);
+    const result = await ha.updateAutomation("1700000000000", {
+      trigger: { platform: "time", at: "22:00:00" },
+    });
+
+    const post = calls.find(
+      (c) => /\/api\/config\/automation\/config\/1700000000000$/.test(c.url) && c.method === "POST"
+    );
+    expect(post).toBeDefined();
+    const sent = JSON.parse(post!.body!);
+    // Changed field replaced…
+    expect(sent.trigger).toEqual([{ platform: "time", at: "22:00:00" }]);
+    // …untouched fields preserved from the current config
+    expect(sent.alias).toBe("Nives: Living room light off at 23:00");
+    expect(sent.action).toEqual([
+      { service: "light.turn_off", target: { entity_id: "light.living_room" } },
+    ]);
+    expect(result.id).toBe("1700000000000");
   });
 });

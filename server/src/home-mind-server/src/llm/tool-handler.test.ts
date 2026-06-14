@@ -31,6 +31,14 @@ describe("handleToolCall", () => {
         },
       ]),
       deleteAutomation: vi.fn().mockResolvedValue(undefined),
+      updateAutomation: vi.fn().mockResolvedValue({
+        id: "1700000000000",
+        alias: "Nives: Living room light off at 22:00",
+        entity_id: "automation.living_room_light_off_at_23_00",
+      }),
+      listServices: vi.fn().mockResolvedValue({
+        notify: ["mobile_app_johns_iphone", "persistent_notification"],
+      }),
     } as unknown as HomeAssistantClient;
   });
 
@@ -208,6 +216,52 @@ describe("handleToolCall", () => {
     expect(ha.deleteAutomation).not.toHaveBeenCalled();
     expect(result).toEqual({
       error: 'No automation found with entity_id "automation.nonexistent".',
+    });
+  });
+
+  it("dispatches update_automation: resolves entity_id, passes only provided fields with Nives: prefix", async () => {
+    const result = await handleToolCall(ha, "update_automation", {
+      entity_id: "automation.living_room_light_off_at_23_00",
+      alias: "Living room light off at 22:00",
+      trigger: { platform: "time", at: "22:00:00" },
+    });
+
+    expect(ha.updateAutomation).toHaveBeenCalledWith("1700000000000", {
+      alias: "Nives: Living room light off at 22:00",
+      trigger: { platform: "time", at: "22:00:00" },
+    });
+    expect(result).toMatchObject({
+      success: true,
+      entity_id: "automation.living_room_light_off_at_23_00",
+    });
+  });
+
+  it("update_automation requires an entity_id", async () => {
+    const result = await handleToolCall(ha, "update_automation", {
+      alias: "Whatever",
+    });
+
+    expect(ha.updateAutomation).not.toHaveBeenCalled();
+    expect(result).toEqual({ error: "update_automation requires an 'entity_id'." });
+  });
+
+  it("update_automation errors when the automation is not found", async () => {
+    const result = await handleToolCall(ha, "update_automation", {
+      entity_id: "automation.nope",
+    });
+
+    expect(ha.updateAutomation).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      error: 'No automation found with entity_id "automation.nope".',
+    });
+  });
+
+  it("dispatches list_services to ha.listServices", async () => {
+    const result = await handleToolCall(ha, "list_services", { domain: "notify" });
+
+    expect(ha.listServices).toHaveBeenCalledWith("notify");
+    expect(result).toEqual({
+      notify: ["mobile_app_johns_iphone", "persistent_notification"],
     });
   });
 

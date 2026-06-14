@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.8
+
+- **Edit automations just by asking.** Say *"change that to 22:00"* or *"have it also turn off the hallway light"* and Nives will update an automation it created — always with your confirmation first.
+- **More reliable notifications.** When you ask Nives to set up an automation that messages your phone, it now confirms your real notification target before creating it — so those alerts reliably land where they should.
+
 ## 2.1.7
 
 - **Nives can now manage the automations it makes.** Ask *"what automations have you set up?"* to see them, or *"delete the living room one"* to remove it — Nives always names the automation and checks with you before deleting anything.
