@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.7
+
+- **Nives can now manage the automations it makes.** Ask *"what automations have you set up?"* to see them, or *"delete the living room one"* to remove it — Nives always names the automation and checks with you before deleting anything.
+
 ## 2.1.6
 
 - **New: Nives can create automations for you.** Ask for something like *"turn the porch light on at sunset every day"* or *"switch the office lights off at 23:00"* and Nives will set up the Home Assistant automation. It always checks with you before creating anything, and every automation it makes is named with a **"Nives: "** prefix so you can easily find — or tweak — it under Settings → Automations.

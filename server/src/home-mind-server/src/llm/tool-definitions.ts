@@ -149,6 +149,32 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ["alias", "trigger", "action"],
     },
   },
+  {
+    name: "list_automations",
+    description:
+      "List the Home Assistant automations (entity_id, name, and on/off enabled state). Automations Nives created are named with a 'Nives: ' prefix. Use this to answer 'what automations do I have / did you make', or to find an automation's entity_id before deleting it.",
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "delete_automation",
+    description:
+      "Delete a Home Assistant automation by its entity_id (get the entity_id from list_automations first). ONLY call this AFTER the user has explicitly confirmed the deletion — first name the automation you're about to remove and ask. Deletion is permanent.",
+    parameters: {
+      type: "object",
+      properties: {
+        entity_id: {
+          type: "string",
+          description:
+            "The automation entity_id to delete (e.g. 'automation.living_room_light_off_at_23_00'). Obtain it from list_automations.",
+        },
+      },
+      required: ["entity_id"],
+    },
+  },
 ];
 
 export function toAnthropicTools(tools: ToolDefinition[]): Anthropic.Tool[] {

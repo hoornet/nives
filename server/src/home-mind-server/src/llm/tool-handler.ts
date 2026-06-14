@@ -128,6 +128,47 @@ export async function handleToolCall(
         break;
       }
 
+      case "list_automations": {
+        const automations = await ha.listAutomations();
+        result = automations.map((a) => ({
+          entity_id: a.entity_id,
+          name: (a.attributes.friendly_name as string) ?? a.entity_id,
+          state: a.state, // "on" = enabled, "off" = disabled
+          id: a.attributes.id as string | undefined,
+        }));
+        break;
+      }
+
+      case "delete_automation": {
+        const entityId = (input.entity_id as string | undefined)?.trim();
+        if (!entityId) {
+          result = { error: "delete_automation requires an 'entity_id'." };
+          break;
+        }
+        const automations = await ha.listAutomations();
+        const target = automations.find((a) => a.entity_id === entityId);
+        if (!target) {
+          result = { error: `No automation found with entity_id "${entityId}".` };
+          break;
+        }
+        const configId = target.attributes.id as string | undefined;
+        if (!configId) {
+          result = {
+            error: `Automation "${entityId}" can't be deleted via the API — it isn't stored in automations.yaml (UI/YAML-managed).`,
+          };
+          break;
+        }
+        const name = (target.attributes.friendly_name as string) ?? entityId;
+        await ha.deleteAutomation(configId);
+        result = {
+          success: true,
+          entity_id: entityId,
+          name,
+          summary: `Deleted automation "${name}".`,
+        };
+        break;
+      }
+
       default:
         result = { error: `Unknown tool: ${toolName}` };
     }

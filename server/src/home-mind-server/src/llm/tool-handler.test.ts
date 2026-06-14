@@ -20,6 +20,17 @@ describe("handleToolCall", () => {
         alias: "Nives: Kitchen lights at 20:00",
         entity_id: "automation.kitchen_lights_at_20_00",
       }),
+      listAutomations: vi.fn().mockResolvedValue([
+        {
+          entity_id: "automation.living_room_light_off_at_23_00",
+          state: "on",
+          attributes: {
+            id: "1700000000000",
+            friendly_name: "Nives: Living room light off at 23:00",
+          },
+        },
+      ]),
+      deleteAutomation: vi.fn().mockResolvedValue(undefined),
     } as unknown as HomeAssistantClient;
   });
 
@@ -153,6 +164,51 @@ describe("handleToolCall", () => {
     });
 
     expect(result).toEqual({ error: "config editor not enabled" });
+  });
+
+  it("dispatches list_automations and returns a slim list", async () => {
+    const result = await handleToolCall(ha, "list_automations", {});
+
+    expect(ha.listAutomations).toHaveBeenCalled();
+    expect(result).toEqual([
+      {
+        entity_id: "automation.living_room_light_off_at_23_00",
+        name: "Nives: Living room light off at 23:00",
+        state: "on",
+        id: "1700000000000",
+      },
+    ]);
+  });
+
+  it("dispatches delete_automation: resolves entity_id to config id and deletes", async () => {
+    const result = await handleToolCall(ha, "delete_automation", {
+      entity_id: "automation.living_room_light_off_at_23_00",
+    });
+
+    expect(ha.deleteAutomation).toHaveBeenCalledWith("1700000000000");
+    expect(result).toMatchObject({
+      success: true,
+      entity_id: "automation.living_room_light_off_at_23_00",
+      name: "Nives: Living room light off at 23:00",
+    });
+  });
+
+  it("delete_automation requires an entity_id", async () => {
+    const result = await handleToolCall(ha, "delete_automation", {});
+
+    expect(ha.deleteAutomation).not.toHaveBeenCalled();
+    expect(result).toEqual({ error: "delete_automation requires an 'entity_id'." });
+  });
+
+  it("delete_automation errors when the automation is not found", async () => {
+    const result = await handleToolCall(ha, "delete_automation", {
+      entity_id: "automation.nonexistent",
+    });
+
+    expect(ha.deleteAutomation).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      error: 'No automation found with entity_id "automation.nonexistent".',
+    });
   });
 
   it("returns error for unknown tool", async () => {
