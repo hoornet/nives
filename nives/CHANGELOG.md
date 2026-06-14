@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.6
+
+- **New: Nives can create automations for you.** Ask for something like *"turn the porch light on at sunset every day"* or *"switch the office lights off at 23:00"* and Nives will set up the Home Assistant automation. It always checks with you before creating anything, and every automation it makes is named with a **"Nives: "** prefix so you can easily find — or tweak — it under Settings → Automations.
+
 ## 2.1.5
 
 - Fresh new look: Nives now has its own icon and logo — a green snow-crystal mark you'll see in the add-on store and across nives.house. Same Nives under the hood.

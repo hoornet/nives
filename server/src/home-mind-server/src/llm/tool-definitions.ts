@@ -113,6 +113,42 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ["entity_id"],
     },
   },
+  {
+    name: "create_automation",
+    description:
+      "Create a new Home Assistant automation (a scheduled or event-triggered routine, e.g. 'turn the porch light on at sunset every day'). ONLY call this AFTER the user has explicitly confirmed they want it created — first restate the trigger and action in plain language and ask. The automation is created ENABLED and its alias is automatically prefixed with 'Nives: ' so the user can find and remove it in Settings → Automations. Provide trigger and action using Home Assistant's automation schema (the same shape as automations.yaml).",
+    parameters: {
+      type: "object",
+      properties: {
+        alias: {
+          type: "string",
+          description:
+            "Human-readable name for the automation (e.g. 'Porch light at sunset'). A 'Nives: ' prefix is added automatically — do not include it yourself.",
+        },
+        trigger: {
+          type: "object",
+          description:
+            "The trigger that starts the automation, as an HA trigger object or array of objects. Examples: time → {\"platform\":\"time\",\"at\":\"23:00:00\"}; sun → {\"platform\":\"sun\",\"event\":\"sunset\",\"offset\":\"-00:15:00\"}; state → {\"platform\":\"state\",\"entity_id\":\"binary_sensor.front_door\",\"to\":\"on\"}; numeric → {\"platform\":\"numeric_state\",\"entity_id\":\"sensor.temperature\",\"above\":25}.",
+        },
+        condition: {
+          type: "object",
+          description:
+            "Optional condition(s) that must be true for the action to run, as an HA condition object or array. Omit if there are no conditions.",
+        },
+        action: {
+          type: "object",
+          description:
+            "The action(s) to perform, as an HA action object or array. Example: {\"service\":\"light.turn_off\",\"target\":{\"entity_id\":\"light.porch\"}}. Use search_entities first to confirm the correct entity_id.",
+        },
+        mode: {
+          type: "string",
+          description:
+            "Optional run mode: 'single' (default), 'restart', 'queued', or 'parallel'. Omit unless the user needs specific concurrency behavior.",
+        },
+      },
+      required: ["alias", "trigger", "action"],
+    },
+  },
 ];
 
 export function toAnthropicTools(tools: ToolDefinition[]): Anthropic.Tool[] {

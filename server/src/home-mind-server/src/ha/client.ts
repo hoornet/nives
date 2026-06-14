@@ -21,6 +21,23 @@ interface CacheEntry<T> {
   timestamp: number;
 }
 
+/** Input for creating an automation. trigger/condition/action may be a single object or an array. */
+export interface AutomationConfig {
+  alias: string;
+  trigger: unknown;
+  condition?: unknown;
+  action: unknown;
+  mode?: string;
+  description?: string;
+}
+
+/** Result of a successful automation creation. */
+export interface CreatedAutomation {
+  id: string;
+  alias: string;
+  entity_id: string;
+}
+
 export class HomeAssistantClient {
   private baseUrl: string;
   private token: string;
@@ -245,5 +262,86 @@ export class HomeAssistantClient {
 
     const result = await this.fetch<HistoryEntry[][]>(endpoint);
     return result[0] || [];
+  }
+
+  /** Wrap a single object (or undefined) into the array form HA's config API expects. */
+  private toArray(value: unknown): unknown[] {
+    if (Array.isArray(value)) return value;
+    if (value === undefined || value === null) return [];
+    return [value];
+  }
+
+  /** Best-effort prediction of the entity_id HA derives from an alias (slugify). */
+  private slugify(alias: string): string {
+    return alias
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  /**
+   * Create (or overwrite) a Home Assistant automation via the config API, then
+   * reload automations so it registers immediately. Returns the authoritative
+   * entity_id (read back from HA, since the alias→slug derivation can differ on
+   * collisions). Throws a friendly error if the HA `config` integration is absent.
+   */
+  async createAutomation(config: AutomationConfig): Promise<CreatedAutomation> {
+    const id = Date.now().toString();
+    const body = {
+      id,
+      alias: config.alias,
+      description: config.description ?? "",
+      mode: config.mode ?? "single",
+      trigger: this.toArray(config.trigger),
+      condition: this.toArray(config.condition),
+      action: this.toArray(config.action),
+    };
+
+    try {
+      await this.fetch(`/api/config/automation/config/${id}`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/HA API error 40[45]\b/.test(message)) {
+        throw new Error(
+          "Couldn't create the automation — this Home Assistant doesn't have the config editor enabled. Add `config:` (or `default_config:`) to configuration.yaml and restart HA, then try again."
+        );
+      }
+      throw error;
+    }
+
+    // Reload so the new automation registers immediately (also invalidates the state cache).
+    await this.callService("automation", "reload");
+
+    return {
+      id,
+      alias: config.alias,
+      entity_id: await this.resolveAutomationEntityId(id, config.alias),
+    };
+  }
+
+  /** List all automation entities (config-id lives in attributes.id). */
+  async listAutomations(): Promise<EntityState[]> {
+    return this.getEntities("automation");
+  }
+
+  /** Delete an automation by its config id, then reload. */
+  async deleteAutomation(id: string): Promise<void> {
+    await this.fetch(`/api/config/automation/config/${id}`, { method: "DELETE" });
+    await this.callService("automation", "reload");
+  }
+
+  /** Find the entity_id HA assigned to a just-created automation (by config id), with slug fallback. */
+  private async resolveAutomationEntityId(id: string, alias: string): Promise<string> {
+    try {
+      const automations = await this.listAutomations();
+      const match = automations.find((a) => a.attributes.id === id);
+      if (match) return match.entity_id;
+    } catch {
+      // Fall through to the predicted slug below.
+    }
+    return `automation.${this.slugify(alias)}`;
   }
 }

@@ -93,6 +93,41 @@ export async function handleToolCall(
         break;
       }
 
+      case "create_automation": {
+        const alias = (input.alias as string | undefined)?.trim();
+        const trigger = input.trigger;
+        const action = input.action;
+        if (!alias) {
+          result = { error: "create_automation requires an 'alias'." };
+          break;
+        }
+        if (trigger === undefined || trigger === null) {
+          result = { error: "create_automation requires a 'trigger'." };
+          break;
+        }
+        if (action === undefined || action === null) {
+          result = { error: "create_automation requires an 'action'." };
+          break;
+        }
+        // Enforce the "Nives: " alias prefix idempotently (don't double-prefix).
+        const prefixedAlias = /^nives:\s*/i.test(alias) ? alias : `Nives: ${alias}`;
+        const created = await ha.createAutomation({
+          alias: prefixedAlias,
+          trigger,
+          condition: input.condition,
+          action,
+          mode: input.mode as string | undefined,
+        });
+        result = {
+          success: true,
+          id: created.id,
+          entity_id: created.entity_id,
+          alias: created.alias,
+          summary: `Created automation "${created.alias}" (${created.entity_id}). It is enabled now.`,
+        };
+        break;
+      }
+
       default:
         result = { error: `Unknown tool: ${toolName}` };
     }

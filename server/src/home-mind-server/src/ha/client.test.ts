@@ -49,3 +49,91 @@ describe("HomeAssistantClient.getHistory URL encoding", () => {
     expect(captured).toContain("end_time=2026-05-11T09%3A00%3A00Z");
   });
 });
+
+describe("HomeAssistantClient.createAutomation", () => {
+  let calls: { url: string; method: string; body?: string }[];
+  let postedId: string | undefined;
+
+  beforeEach(() => {
+    calls = [];
+    postedId = undefined;
+    global.fetch = vi.fn(async (input: unknown, init?: unknown) => {
+      const url = typeof input === "string" ? input : String(input);
+      const opts = (init ?? {}) as { method?: string; body?: string };
+      calls.push({ url, method: opts.method ?? "GET", body: opts.body });
+
+      const configMatch = url.match(/\/api\/config\/automation\/config\/(\d+)$/);
+      if (configMatch) {
+        postedId = configMatch[1];
+        return new Response(JSON.stringify({ result: "ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      // Read-back: listAutomations() → getEntities("automation") → GET /api/states
+      if (url.endsWith("/api/states")) {
+        return new Response(
+          JSON.stringify([
+            {
+              entity_id: "automation.kitchen_lights_at_20_00",
+              state: "on",
+              attributes: { id: postedId, friendly_name: "Nives: Kitchen lights at 20:00" },
+              last_changed: "",
+              last_updated: "",
+            },
+          ]),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      // automation.reload service call (and any other) → empty list
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+  });
+
+  it("POSTs the config (normalizing objects to arrays), reloads, and reads back the entity_id", async () => {
+    const ha = new HomeAssistantClient(baseConfig);
+    const result = await ha.createAutomation({
+      alias: "Nives: Kitchen lights at 20:00",
+      trigger: { platform: "time", at: "20:00:00" },
+      action: { service: "light.turn_on", target: { entity_id: "light.kitchen" } },
+    });
+
+    const post = calls.find(
+      (c) => /\/api\/config\/automation\/config\/\d+$/.test(c.url) && c.method === "POST"
+    );
+    expect(post).toBeDefined();
+    const sent = JSON.parse(post!.body!);
+    expect(Array.isArray(sent.trigger)).toBe(true);
+    expect(Array.isArray(sent.action)).toBe(true);
+    expect(Array.isArray(sent.condition)).toBe(true); // omitted → []
+    expect(sent.alias).toBe("Nives: Kitchen lights at 20:00");
+    expect(sent.mode).toBe("single");
+
+    // Reloaded so the entity registers immediately
+    expect(
+      calls.some((c) => c.url.endsWith("/api/services/automation/reload") && c.method === "POST")
+    ).toBe(true);
+
+    // Authoritative entity_id read back from HA
+    expect(result.entity_id).toBe("automation.kitchen_lights_at_20_00");
+    expect(result.id).toBe(postedId);
+  });
+
+  it("throws a friendly error when the config editor is not enabled (404)", async () => {
+    global.fetch = vi.fn(
+      async () => new Response("404: Not Found", { status: 404 })
+    ) as unknown as typeof fetch;
+
+    const ha = new HomeAssistantClient(baseConfig);
+    await expect(
+      ha.createAutomation({
+        alias: "X",
+        trigger: { platform: "time", at: "20:00:00" },
+        action: { service: "light.turn_on" },
+      })
+    ).rejects.toThrow(/config editor/i);
+  });
+});

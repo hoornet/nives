@@ -15,6 +15,11 @@ describe("handleToolCall", () => {
       searchEntities: vi.fn().mockResolvedValue([{ entity_id: "light.bed" }]),
       callService: vi.fn().mockResolvedValue({ success: true }),
       getHistory: vi.fn().mockResolvedValue([{ state: "22" }]),
+      createAutomation: vi.fn().mockResolvedValue({
+        id: "1700000000000",
+        alias: "Nives: Kitchen lights at 20:00",
+        entity_id: "automation.kitchen_lights_at_20_00",
+      }),
     } as unknown as HomeAssistantClient;
   });
 
@@ -82,6 +87,72 @@ describe("handleToolCall", () => {
       "2026-01-02T00:00:00Z"
     );
     expect(result).toEqual([{ state: "22" }]);
+  });
+
+  it("dispatches create_automation to ha.createAutomation with a Nives: prefix", async () => {
+    const result = await handleToolCall(ha, "create_automation", {
+      alias: "Kitchen lights at 20:00",
+      trigger: { platform: "time", at: "20:00:00" },
+      action: { service: "light.turn_on", target: { entity_id: "light.kitchen" } },
+    });
+
+    expect(ha.createAutomation).toHaveBeenCalledWith({
+      alias: "Nives: Kitchen lights at 20:00",
+      trigger: { platform: "time", at: "20:00:00" },
+      condition: undefined,
+      action: { service: "light.turn_on", target: { entity_id: "light.kitchen" } },
+      mode: undefined,
+    });
+    expect(result).toMatchObject({
+      success: true,
+      entity_id: "automation.kitchen_lights_at_20_00",
+      alias: "Nives: Kitchen lights at 20:00",
+    });
+  });
+
+  it("does not double-prefix an alias that already starts with Nives:", async () => {
+    await handleToolCall(ha, "create_automation", {
+      alias: "Nives: Porch at sunset",
+      trigger: { platform: "sun", event: "sunset" },
+      action: { service: "light.turn_on", target: { entity_id: "light.porch" } },
+    });
+
+    const call = (ha.createAutomation as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.alias).toBe("Nives: Porch at sunset");
+  });
+
+  it("returns an error when create_automation is missing a trigger", async () => {
+    const result = await handleToolCall(ha, "create_automation", {
+      alias: "No trigger",
+      action: { service: "light.turn_on" },
+    });
+
+    expect(ha.createAutomation).not.toHaveBeenCalled();
+    expect(result).toEqual({ error: "create_automation requires a 'trigger'." });
+  });
+
+  it("returns an error when create_automation is missing an action", async () => {
+    const result = await handleToolCall(ha, "create_automation", {
+      alias: "No action",
+      trigger: { platform: "time", at: "20:00:00" },
+    });
+
+    expect(ha.createAutomation).not.toHaveBeenCalled();
+    expect(result).toEqual({ error: "create_automation requires an 'action'." });
+  });
+
+  it("wraps createAutomation failures in an error object", async () => {
+    (ha.createAutomation as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("config editor not enabled")
+    );
+
+    const result = await handleToolCall(ha, "create_automation", {
+      alias: "Boom",
+      trigger: { platform: "time", at: "20:00:00" },
+      action: { service: "light.turn_on" },
+    });
+
+    expect(result).toEqual({ error: "config editor not enabled" });
   });
 
   it("returns error for unknown tool", async () => {
