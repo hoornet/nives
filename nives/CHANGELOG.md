@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.12
+
+- **More reliable automation actions.** Nives now builds notification and device actions correctly even if the underlying details are phrased loosely — so creating an automation that messages your phone just works.
+
 ## 2.1.11
 
 - **Creating an automation now reliably completes on your first "yes."** A follow-up fix to the confirmation flow so it no longer keeps re-asking after you've already confirmed.

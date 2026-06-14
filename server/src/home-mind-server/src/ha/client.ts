@@ -271,6 +271,47 @@ export class HomeAssistantClient {
     return [value];
   }
 
+  /**
+   * Coerce common LLM action malformations into a valid HA action shape:
+   *  - a stray `domain` key (HA 400s on it) is folded into the service id
+   *    (e.g. {service:"mobile_app_x", domain:"notify"} → {service:"notify.mobile_app_x"})
+   *  - `service_data` is renamed to `data` (HA's current key)
+   * Recurses into control structures (choose/if/sequence/...) but not into payloads.
+   */
+  private cleanActionNode(node: unknown): unknown {
+    if (Array.isArray(node)) return node.map((n) => this.cleanActionNode(n));
+    if (!node || typeof node !== "object") return node;
+    const obj = node as Record<string, unknown>;
+    const isCall = typeof obj.service === "string" || typeof obj.action === "string";
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (isCall && key === "domain") continue; // dropped; folded into service below
+      if (isCall && key === "service_data") {
+        if (obj.data === undefined) out.data = value; // rename service_data → data
+        continue;
+      }
+      // Leave payload values untouched; recurse into control structures.
+      if (key === "data" || key === "target" || key === "metadata" || key === "variables") {
+        out[key] = value;
+      } else {
+        out[key] = this.cleanActionNode(value);
+      }
+    }
+    if (
+      isCall &&
+      typeof obj.domain === "string" &&
+      typeof out.service === "string" &&
+      !(out.service as string).includes(".")
+    ) {
+      out.service = `${obj.domain}.${out.service}`;
+    }
+    return out;
+  }
+
+  private normalizeActions(actions: unknown[]): unknown[] {
+    return actions.map((a) => this.cleanActionNode(a));
+  }
+
   /** Best-effort prediction of the entity_id HA derives from an alias (slugify). */
   private slugify(alias: string): string {
     return alias
@@ -294,7 +335,7 @@ export class HomeAssistantClient {
       mode: config.mode ?? "single",
       trigger: this.toArray(config.trigger),
       condition: this.toArray(config.condition),
-      action: this.toArray(config.action),
+      action: this.normalizeActions(this.toArray(config.action)),
     };
 
     // Reject actions that reference non-existent services (e.g. a guessed
@@ -377,10 +418,11 @@ export class HomeAssistantClient {
         changes.condition !== undefined
           ? this.toArray(changes.condition)
           : this.toArray(current.condition),
-      action:
+      action: this.normalizeActions(
         changes.action !== undefined
           ? this.toArray(changes.action)
-          : this.toArray(current.action),
+          : this.toArray(current.action)
+      ),
     };
 
     await this.validateActionServices(merged.action);

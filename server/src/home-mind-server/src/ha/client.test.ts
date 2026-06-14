@@ -133,6 +133,28 @@ describe("HomeAssistantClient.createAutomation", () => {
     expect(result.id).toBe(postedId);
   });
 
+  it("coerces a malformed action (stray domain + service_data) into a valid HA shape", async () => {
+    const ha = new HomeAssistantClient(baseConfig);
+    await ha.createAutomation({
+      alias: "Nives: Sun Adoration Notification",
+      trigger: { platform: "time", at: "12:00:00" },
+      action: {
+        service: "mobile_app_johns_iphone",
+        domain: "notify",
+        service_data: { message: "It's time!" },
+      },
+    });
+
+    const post = calls.find(
+      (c) => /\/api\/config\/automation\/config\/\d+$/.test(c.url) && c.method === "POST"
+    );
+    expect(post).toBeDefined();
+    const sent = JSON.parse(post!.body!);
+    expect(sent.action).toEqual([
+      { service: "notify.mobile_app_johns_iphone", data: { message: "It's time!" } },
+    ]);
+  });
+
   it("throws a friendly error when the config editor is not enabled (404)", async () => {
     global.fetch = vi.fn(
       async () => new Response("404: Not Found", { status: 404 })

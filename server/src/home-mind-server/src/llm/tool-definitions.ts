@@ -138,7 +138,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         action: {
           type: "object",
           description:
-            "The action(s) to perform, as an HA action object or array. Example: {\"service\":\"light.turn_off\",\"target\":{\"entity_id\":\"light.porch\"}}. Use search_entities first to confirm the correct entity_id.",
+            "The action(s) to perform. Each action MUST be shaped exactly as {\"service\": \"<domain>.<name>\", \"data\": {...}} with an optional \"target\": {\"entity_id\": \"...\"}. Example (light): {\"service\":\"light.turn_off\",\"target\":{\"entity_id\":\"light.porch\"}}. Example (phone notification): {\"service\":\"notify.mobile_app_<device>\",\"data\":{\"message\":\"...\"}}. The service id MUST include its domain prefix (e.g. \"notify.mobile_app_sm_a366b\" — get it from list_services). Do NOT add a separate \"domain\" key, and do NOT use \"service_data\" (use \"data\").",
         },
         mode: {
           type: "string",
@@ -205,7 +205,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         action: {
           type: "object",
           description:
-            "Optional replacement action(s) (HA action object or array). Replaces the existing action entirely. Use search_entities / list_services first to confirm real entity_ids and service ids. Omit to keep the current action.",
+            "Optional replacement action(s). Replaces the existing action entirely. Each action MUST be shaped {\"service\": \"<domain>.<name>\", \"data\": {...}} with optional \"target\": {\"entity_id\": \"...\"} — full service id with its domain (from list_services), NO separate \"domain\" key, and use \"data\" not \"service_data\". Omit to keep the current action.",
         },
         mode: {
           type: "string",
