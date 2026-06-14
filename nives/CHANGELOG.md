@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.9
+
+- **Nives always checks with you before touching your automations.** Creating, editing, or deleting an automation now reliably shows you exactly what it will do and waits for your "yes" first — so nothing in your setup changes without your say-so.
+
 ## 2.1.8
 
 - **Edit automations just by asking.** Say *"change that to 22:00"* or *"have it also turn off the hallway light"* and Nives will update an automation it created — always with your confirmation first.

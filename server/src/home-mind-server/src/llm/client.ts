@@ -7,6 +7,7 @@ import { DeviceScanner } from "../ha/device-scanner.js";
 import { TopologyScanner } from "../ha/topology-scanner.js";
 import { buildSystemPrompt, type CachedSystemPrompt } from "./prompts.js";
 import { HA_TOOLS } from "./tools.js";
+import { randomUUID } from "node:crypto";
 import { handleToolCall, extractAndStoreFacts } from "./tool-handler.js";
 import type {
   ChatRequest,
@@ -57,6 +58,7 @@ export class LLMClient implements IChatEngine {
   ): Promise<ChatResponse> {
     const { message, userId, conversationId, isVoice = false, customPrompt } = request;
     const toolsUsed: string[] = [];
+    const turnId = randomUUID(); // nonce for this turn — powers the automation confirmation gate
 
     // 1. Load user's memory (pass current message as context for Shodh's proactive retrieval)
     const facts = await this.memory.getFactsWithinTokenLimit(
@@ -122,7 +124,8 @@ export class LLMClient implements IChatEngine {
         const result = await handleToolCall(
           this.ha,
           block.name,
-          block.input as Record<string, unknown>
+          block.input as Record<string, unknown>,
+          { conversationId, turnId }
         );
         return {
           type: "tool_result" as const,

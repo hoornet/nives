@@ -7,6 +7,7 @@ import { DeviceScanner } from "../ha/device-scanner.js";
 import { TopologyScanner } from "../ha/topology-scanner.js";
 import { buildSystemPromptText } from "./prompts.js";
 import { TOOL_DEFINITIONS, toOpenAITools } from "./tool-definitions.js";
+import { randomUUID } from "node:crypto";
 import { handleToolCall, extractAndStoreFacts } from "./tool-handler.js";
 import type {
   ChatRequest,
@@ -64,6 +65,7 @@ export class OpenAIChatEngine implements IChatEngine {
   ): Promise<ChatResponse> {
     const { message, userId, conversationId, isVoice = false, customPrompt } = request;
     const toolsUsed: string[] = [];
+    const turnId = randomUUID(); // nonce for this turn — powers the automation confirmation gate
 
     // 1. Load user's memory
     const facts = await this.memory.getFactsWithinTokenLimit(
@@ -121,7 +123,10 @@ export class OpenAIChatEngine implements IChatEngine {
       const toolPromises = result.toolCalls.map(async (tc: FunctionToolCall) => {
         toolsUsed.push(tc.function.name);
         const args = JSON.parse(tc.function.arguments);
-        const toolResult = await handleToolCall(this.ha, tc.function.name, args);
+        const toolResult = await handleToolCall(this.ha, tc.function.name, args, {
+          conversationId,
+          turnId,
+        });
         return {
           role: "tool" as const,
           tool_call_id: tc.id,

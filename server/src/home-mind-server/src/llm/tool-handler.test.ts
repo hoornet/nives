@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { handleToolCall, extractAndStoreFacts, filterExtractedFacts, normalizeTimestamp, truncateHistory } from "./tool-handler.js";
+import { clearConfirmation } from "./automation-confirmations.js";
 import type { HomeAssistantClient } from "../ha/client.js";
 import type { IMemoryStore } from "../memory/interface.js";
 import type { IFactExtractor } from "./interface.js";
@@ -291,6 +292,108 @@ describe("handleToolCall", () => {
     });
 
     expect(result).toEqual({ error: "string error" });
+  });
+});
+
+describe("handleToolCall confirmation gate", () => {
+  let ha: HomeAssistantClient;
+  const CONV = "conv-gate";
+  const ctx = (turnId: string) => ({ conversationId: CONV, turnId });
+  const createInput = () => ({
+    alias: "Kitchen lights at 20:00",
+    trigger: { platform: "time", at: "20:00:00" },
+    action: { service: "light.turn_on", target: { entity_id: "light.kitchen" } },
+  });
+
+  beforeEach(() => {
+    clearConfirmation(CONV);
+    ha = {
+      createAutomation: vi.fn().mockResolvedValue({
+        id: "1",
+        alias: "Nives: Kitchen lights at 20:00",
+        entity_id: "automation.kitchen_lights_at_20_00",
+      }),
+      listAutomations: vi.fn().mockResolvedValue([
+        { entity_id: "automation.x", state: "on", attributes: { id: "9", friendly_name: "Nives: X" } },
+      ]),
+      deleteAutomation: vi.fn().mockResolvedValue(undefined),
+    } as unknown as HomeAssistantClient;
+  });
+
+  afterEach(() => vi.clearAllMocks());
+
+  it("first create call returns confirmation_required and does NOT create", async () => {
+    const result = (await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"))) as {
+      confirmation_required?: boolean;
+      confirm_token?: string;
+    };
+    expect(ha.createAutomation).not.toHaveBeenCalled();
+    expect(result.confirmation_required).toBe(true);
+    expect(typeof result.confirm_token).toBe("string");
+  });
+
+  it("rejects confirming in the SAME turn (no real user reply yet)", async () => {
+    const first = (await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"))) as {
+      confirm_token: string;
+    };
+    const second = (await handleToolCall(
+      ha,
+      "create_automation",
+      { ...createInput(), confirm_token: first.confirm_token },
+      ctx("turn-A")
+    )) as { error?: string };
+    expect(ha.createAutomation).not.toHaveBeenCalled();
+    expect(second.error).toBeDefined();
+  });
+
+  it("creates when confirmed in a LATER turn with the token", async () => {
+    const first = (await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"))) as {
+      confirm_token: string;
+    };
+    const second = (await handleToolCall(
+      ha,
+      "create_automation",
+      { ...createInput(), confirm_token: first.confirm_token },
+      ctx("turn-B")
+    )) as { success?: boolean };
+    expect(ha.createAutomation).toHaveBeenCalledTimes(1);
+    expect(second.success).toBe(true);
+  });
+
+  it("creates from the STORED payload, ignoring tampering in the confirm call", async () => {
+    const first = (await handleToolCall(
+      ha,
+      "create_automation",
+      { ...createInput(), alias: "Original" },
+      ctx("turn-A")
+    )) as { confirm_token: string };
+    await handleToolCall(
+      ha,
+      "create_automation",
+      { alias: "Tampered", trigger: {}, action: {}, confirm_token: first.confirm_token },
+      ctx("turn-B")
+    );
+    const arg = (ha.createAutomation as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.alias).toBe("Nives: Original");
+  });
+
+  it("without conversation context, creates directly (legacy path)", async () => {
+    const result = (await handleToolCall(ha, "create_automation", createInput())) as {
+      success?: boolean;
+    };
+    expect(ha.createAutomation).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
+  });
+
+  it("delete also requires confirmation (first call previews, no delete)", async () => {
+    const result = (await handleToolCall(
+      ha,
+      "delete_automation",
+      { entity_id: "automation.x" },
+      ctx("turn-A")
+    )) as { confirmation_required?: boolean };
+    expect(ha.deleteAutomation).not.toHaveBeenCalled();
+    expect(result.confirmation_required).toBe(true);
   });
 });
 
