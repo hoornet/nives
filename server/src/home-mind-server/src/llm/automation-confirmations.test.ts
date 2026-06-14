@@ -1,41 +1,74 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  issueConfirmation,
-  consumeConfirmation,
+  recordPreview,
+  isConfirmed,
   clearConfirmation,
   describePending,
 } from "./automation-confirmations.js";
 
 describe("automation confirmations", () => {
   const conv = "conv-1";
+  const create = (over: Record<string, unknown> = {}) => ({
+    alias: "X",
+    trigger: { platform: "time", at: "12:00:00" },
+    action: { service: "notify.foo" },
+    ...over,
+  });
+
   beforeEach(() => clearConfirmation(conv));
 
-  it("consumes a valid token from a LATER turn", () => {
-    const token = issueConfirmation(conv, "create_automation", { alias: "X" }, "turn-1");
-    const res = consumeConfirmation(conv, token, "create_automation", "turn-2");
-    expect(res.ok).toBe(true);
-    if (res.ok) expect(res.input).toEqual({ alias: "X" });
+  it("confirms the same payload in a LATER turn after a recorded preview", () => {
+    recordPreview(conv, "create_automation", create(), "turn-1");
+    expect(isConfirmed(conv, "create_automation", create(), "turn-2")).toBe(true);
   });
 
-  it("rejects confirming in the SAME turn it was issued", () => {
-    const token = issueConfirmation(conv, "create_automation", { alias: "X" }, "turn-1");
-    expect(consumeConfirmation(conv, token, "create_automation", "turn-1").ok).toBe(false);
+  it("does NOT confirm in the same turn the preview was recorded", () => {
+    recordPreview(conv, "create_automation", create(), "turn-1");
+    expect(isConfirmed(conv, "create_automation", create(), "turn-1")).toBe(false);
   });
 
-  it("rejects an unknown / mismatched token", () => {
-    issueConfirmation(conv, "create_automation", { alias: "X" }, "turn-1");
-    expect(consumeConfirmation(conv, "not-the-token", "create_automation", "turn-2").ok).toBe(false);
+  it("does NOT confirm without a prior preview", () => {
+    expect(isConfirmed(conv, "create_automation", create(), "turn-2")).toBe(false);
   });
 
-  it("rejects when the tool name differs", () => {
-    const token = issueConfirmation(conv, "create_automation", { alias: "X" }, "turn-1");
-    expect(consumeConfirmation(conv, token, "delete_automation", "turn-2").ok).toBe(false);
+  it("does NOT confirm a DIFFERENT payload (forces a re-preview)", () => {
+    recordPreview(conv, "create_automation", create(), "turn-1");
+    expect(
+      isConfirmed(
+        conv,
+        "create_automation",
+        create({ trigger: { platform: "time", at: "13:00:00" } }),
+        "turn-2"
+      )
+    ).toBe(false);
   });
 
-  it("is single-use — a token can't be consumed twice", () => {
-    const token = issueConfirmation(conv, "create_automation", { alias: "X" }, "turn-1");
-    expect(consumeConfirmation(conv, token, "create_automation", "turn-2").ok).toBe(true);
-    expect(consumeConfirmation(conv, token, "create_automation", "turn-3").ok).toBe(false);
+  it("ignores the 'Nives: ' prefix and key order when matching", () => {
+    recordPreview(
+      conv,
+      "create_automation",
+      { alias: "Sun", action: { service: "notify.foo" }, trigger: { at: "12:00:00", platform: "time" } },
+      "turn-1"
+    );
+    expect(
+      isConfirmed(
+        conv,
+        "create_automation",
+        { trigger: { platform: "time", at: "12:00:00" }, alias: "Nives: Sun", action: { service: "notify.foo" } },
+        "turn-2"
+      )
+    ).toBe(true);
+  });
+
+  it("is single-use — confirming consumes the preview", () => {
+    recordPreview(conv, "create_automation", create(), "turn-1");
+    expect(isConfirmed(conv, "create_automation", create(), "turn-2")).toBe(true);
+    expect(isConfirmed(conv, "create_automation", create(), "turn-3")).toBe(false);
+  });
+
+  it("does not confirm across different tools", () => {
+    recordPreview(conv, "create_automation", create(), "turn-1");
+    expect(isConfirmed(conv, "delete_automation", { entity_id: "automation.x" }, "turn-2")).toBe(false);
   });
 
   it("describePending summarizes create/update/delete", () => {

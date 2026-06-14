@@ -145,11 +145,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           description:
             "Optional run mode: 'single' (default), 'restart', 'queued', or 'parallel'. Omit unless the user needs specific concurrency behavior.",
         },
-        confirm_token: {
-          type: "string",
-          description:
-            "Leave EMPTY on the first call — the tool returns a preview and a confirm_token WITHOUT creating anything. Describe the preview to the user and ask them to confirm. After they reply yes, call again with the same arguments plus this exact confirm_token to actually create it. Never invent a token.",
-        },
       },
       required: ["alias", "trigger", "action"],
     },
@@ -175,11 +170,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
           type: "string",
           description:
             "The automation entity_id to delete (e.g. 'automation.living_room_light_off_at_23_00'). Obtain it from list_automations.",
-        },
-        confirm_token: {
-          type: "string",
-          description:
-            "Leave EMPTY on the first call — the tool returns a preview and a confirm_token WITHOUT deleting anything. Name the automation to the user and ask them to confirm. After they reply yes, call again with the same entity_id plus this exact confirm_token to actually delete it. Never invent a token.",
         },
       },
       required: ["entity_id"],
@@ -220,11 +210,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         mode: {
           type: "string",
           description: "Optional new run mode: 'single', 'restart', 'queued', or 'parallel'.",
-        },
-        confirm_token: {
-          type: "string",
-          description:
-            "Leave EMPTY on the first call — the tool returns a preview of the change and a confirm_token WITHOUT modifying anything. Describe the change to the user and ask them to confirm. After they reply yes, call again with the same arguments plus this exact confirm_token to apply it. Never invent a token.",
         },
       },
       required: ["entity_id"],

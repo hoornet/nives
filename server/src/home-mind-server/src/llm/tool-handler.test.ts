@@ -325,56 +325,39 @@ describe("handleToolCall confirmation gate", () => {
   it("first create call returns confirmation_required and does NOT create", async () => {
     const result = (await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"))) as {
       confirmation_required?: boolean;
-      confirm_token?: string;
     };
     expect(ha.createAutomation).not.toHaveBeenCalled();
     expect(result.confirmation_required).toBe(true);
-    expect(typeof result.confirm_token).toBe("string");
   });
 
-  it("rejects confirming in the SAME turn (no real user reply yet)", async () => {
-    const first = (await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"))) as {
-      confirm_token: string;
+  it("re-calling the same args in the SAME turn still does not create", async () => {
+    await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"));
+    const second = (await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"))) as {
+      confirmation_required?: boolean;
     };
-    const second = (await handleToolCall(
-      ha,
-      "create_automation",
-      { ...createInput(), confirm_token: first.confirm_token },
-      ctx("turn-A")
-    )) as { error?: string };
     expect(ha.createAutomation).not.toHaveBeenCalled();
-    expect(second.error).toBeDefined();
+    expect(second.confirmation_required).toBe(true);
   });
 
-  it("creates when confirmed in a LATER turn with the token", async () => {
-    const first = (await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"))) as {
-      confirm_token: string;
+  it("creates when the same args are re-called in a LATER turn", async () => {
+    await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"));
+    const second = (await handleToolCall(ha, "create_automation", createInput(), ctx("turn-B"))) as {
+      success?: boolean;
     };
-    const second = (await handleToolCall(
-      ha,
-      "create_automation",
-      { ...createInput(), confirm_token: first.confirm_token },
-      ctx("turn-B")
-    )) as { success?: boolean };
     expect(ha.createAutomation).toHaveBeenCalledTimes(1);
     expect(second.success).toBe(true);
   });
 
-  it("creates from the STORED payload, ignoring tampering in the confirm call", async () => {
-    const first = (await handleToolCall(
+  it("a CHANGED payload in a later turn re-previews instead of creating", async () => {
+    await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"));
+    const changed = (await handleToolCall(
       ha,
       "create_automation",
-      { ...createInput(), alias: "Original" },
-      ctx("turn-A")
-    )) as { confirm_token: string };
-    await handleToolCall(
-      ha,
-      "create_automation",
-      { alias: "Tampered", trigger: {}, action: {}, confirm_token: first.confirm_token },
+      { ...createInput(), trigger: { platform: "time", at: "13:00:00" } },
       ctx("turn-B")
-    );
-    const arg = (ha.createAutomation as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(arg.alias).toBe("Nives: Original");
+    )) as { confirmation_required?: boolean };
+    expect(ha.createAutomation).not.toHaveBeenCalled();
+    expect(changed.confirmation_required).toBe(true);
   });
 
   it("without conversation context, creates directly (legacy path)", async () => {
@@ -385,15 +368,18 @@ describe("handleToolCall confirmation gate", () => {
     expect(result.success).toBe(true);
   });
 
-  it("delete also requires confirmation (first call previews, no delete)", async () => {
-    const result = (await handleToolCall(
-      ha,
-      "delete_automation",
-      { entity_id: "automation.x" },
-      ctx("turn-A")
-    )) as { confirmation_required?: boolean };
+  it("delete requires confirmation first, then deletes on a later-turn re-call", async () => {
+    const first = (await handleToolCall(ha, "delete_automation", { entity_id: "automation.x" }, ctx("turn-A"))) as {
+      confirmation_required?: boolean;
+    };
     expect(ha.deleteAutomation).not.toHaveBeenCalled();
-    expect(result.confirmation_required).toBe(true);
+    expect(first.confirmation_required).toBe(true);
+
+    const second = (await handleToolCall(ha, "delete_automation", { entity_id: "automation.x" }, ctx("turn-B"))) as {
+      success?: boolean;
+    };
+    expect(ha.deleteAutomation).toHaveBeenCalledWith("9");
+    expect(second.success).toBe(true);
   });
 });
 

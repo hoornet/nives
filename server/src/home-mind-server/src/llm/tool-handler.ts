@@ -3,7 +3,7 @@ import type { IMemoryStore } from "../memory/interface.js";
 import type { IFactExtractor } from "./interface.js";
 import type { ExtractedFact } from "../memory/types.js";
 import { filterFacts } from "../memory/fact-patterns.js";
-import { issueConfirmation, consumeConfirmation, describePending } from "./automation-confirmations.js";
+import { isConfirmed, recordPreview, describePending } from "./automation-confirmations.js";
 
 /** Per-request context for tools that need conversation continuity (e.g. the confirmation gate). */
 export interface ToolContext {
@@ -13,47 +13,38 @@ export interface ToolContext {
 }
 
 /**
- * Server-enforced confirmation gate for automation changes. On the first call
- * (no confirm_token) it stores the payload and returns a preview + token without
- * acting. It only lets execution proceed when a matching token is supplied in a
- * LATER turn. When there's no conversation continuity (no conversationId/turnId),
- * it falls back to direct execution (legacy behavior).
+ * Server-enforced confirmation gate for automation changes. On the first call it
+ * records a preview and returns confirmation_required WITHOUT acting. It only lets
+ * execution proceed when the SAME tool is called with the SAME (normalized)
+ * arguments in a LATER turn — i.e. after the user has replied "yes". No token is
+ * carried (tool results aren't persisted to history). When there's no conversation
+ * continuity (no conversationId/turnId), it falls back to direct execution.
  */
 function gateAutomationChange(
   ctx: ToolContext | undefined,
   toolName: string,
   input: Record<string, unknown>
-):
-  | { proceed: true; input: Record<string, unknown> }
-  | { proceed: false; response: unknown } {
+): { proceed: boolean; response?: unknown } {
   const conversationId = ctx?.conversationId;
   const turnId = ctx?.turnId;
   if (!conversationId || !turnId) {
-    return { proceed: true, input }; // No continuity → can't gate; behave as before.
+    return { proceed: true }; // No continuity → can't gate; behave as before.
   }
 
-  const confirmToken =
-    typeof input.confirm_token === "string" ? (input.confirm_token as string) : undefined;
-
-  if (!confirmToken) {
-    const token = issueConfirmation(conversationId, toolName, input, turnId);
-    return {
-      proceed: false,
-      response: {
-        confirmation_required: true,
-        preview: describePending(toolName, input),
-        confirm_token: token,
-        message:
-          "This change has NOT been made yet. Describe the preview to the user in plain language and ask them to confirm. ONLY after they reply with a yes, call this tool again with the same arguments plus this confirm_token.",
-      },
-    };
+  if (isConfirmed(conversationId, toolName, input, turnId)) {
+    return { proceed: true };
   }
 
-  const check = consumeConfirmation(conversationId, confirmToken, toolName, turnId);
-  if (!check.ok) {
-    return { proceed: false, response: { error: check.reason } };
-  }
-  return { proceed: true, input: check.input };
+  recordPreview(conversationId, toolName, input, turnId);
+  return {
+    proceed: false,
+    response: {
+      confirmation_required: true,
+      preview: describePending(toolName, input),
+      message:
+        "This change has NOT been made yet. Describe the preview to the user in plain language and ask them to confirm. ONLY after they reply with a yes, call this exact tool AGAIN with the same arguments to apply it. (Do not claim it's done until a call returns success.)",
+    },
+  };
 }
 
 /** Max history entries to return to the LLM to avoid blowing context window */
@@ -147,22 +138,18 @@ export async function handleToolCall(
       }
 
       case "create_automation": {
-        // Validate up-front on the first call; the confirmed call reuses the
-        // stored, already-validated payload.
-        if (typeof input.confirm_token !== "string") {
-          const a = (input.alias as string | undefined)?.trim();
-          if (!a) {
-            result = { error: "create_automation requires an 'alias'." };
-            break;
-          }
-          if (input.trigger === undefined || input.trigger === null) {
-            result = { error: "create_automation requires a 'trigger'." };
-            break;
-          }
-          if (input.action === undefined || input.action === null) {
-            result = { error: "create_automation requires an 'action'." };
-            break;
-          }
+        const alias = (input.alias as string | undefined)?.trim();
+        if (!alias) {
+          result = { error: "create_automation requires an 'alias'." };
+          break;
+        }
+        if (input.trigger === undefined || input.trigger === null) {
+          result = { error: "create_automation requires a 'trigger'." };
+          break;
+        }
+        if (input.action === undefined || input.action === null) {
+          result = { error: "create_automation requires an 'action'." };
+          break;
         }
 
         const gate = gateAutomationChange(ctx, "create_automation", input);
@@ -170,17 +157,15 @@ export async function handleToolCall(
           result = gate.response;
           break;
         }
-        const g = gate.input;
 
         // Enforce the "Nives: " alias prefix idempotently (don't double-prefix).
-        const alias = (g.alias as string).trim();
         const prefixedAlias = /^nives:\s*/i.test(alias) ? alias : `Nives: ${alias}`;
         const created = await ha.createAutomation({
           alias: prefixedAlias,
-          trigger: g.trigger,
-          condition: g.condition,
-          action: g.action,
-          mode: g.mode as string | undefined,
+          trigger: input.trigger,
+          condition: input.condition,
+          action: input.action,
+          mode: input.mode as string | undefined,
         });
         result = {
           success: true,
@@ -204,19 +189,16 @@ export async function handleToolCall(
       }
 
       case "delete_automation": {
-        if (typeof input.confirm_token !== "string") {
-          const e = (input.entity_id as string | undefined)?.trim();
-          if (!e) {
-            result = { error: "delete_automation requires an 'entity_id'." };
-            break;
-          }
+        const entityId = (input.entity_id as string | undefined)?.trim();
+        if (!entityId) {
+          result = { error: "delete_automation requires an 'entity_id'." };
+          break;
         }
         const gate = gateAutomationChange(ctx, "delete_automation", input);
         if (!gate.proceed) {
           result = gate.response;
           break;
         }
-        const entityId = (gate.input.entity_id as string).trim();
         const automations = await ha.listAutomations();
         const target = automations.find((a) => a.entity_id === entityId);
         if (!target) {
@@ -242,20 +224,16 @@ export async function handleToolCall(
       }
 
       case "update_automation": {
-        if (typeof input.confirm_token !== "string") {
-          const e = (input.entity_id as string | undefined)?.trim();
-          if (!e) {
-            result = { error: "update_automation requires an 'entity_id'." };
-            break;
-          }
+        const entityId = (input.entity_id as string | undefined)?.trim();
+        if (!entityId) {
+          result = { error: "update_automation requires an 'entity_id'." };
+          break;
         }
         const gate = gateAutomationChange(ctx, "update_automation", input);
         if (!gate.proceed) {
           result = gate.response;
           break;
         }
-        const g = gate.input;
-        const entityId = (g.entity_id as string).trim();
         const automations = await ha.listAutomations();
         const target = automations.find((a) => a.entity_id === entityId);
         if (!target) {
@@ -271,14 +249,14 @@ export async function handleToolCall(
         }
         // Overlay only the fields the caller actually provided.
         const changes: Partial<AutomationConfig> = {};
-        if (g.alias !== undefined) {
-          const a = (g.alias as string).trim();
+        if (input.alias !== undefined) {
+          const a = (input.alias as string).trim();
           changes.alias = /^nives:\s*/i.test(a) ? a : `Nives: ${a}`;
         }
-        if (g.trigger !== undefined) changes.trigger = g.trigger;
-        if (g.condition !== undefined) changes.condition = g.condition;
-        if (g.action !== undefined) changes.action = g.action;
-        if (g.mode !== undefined) changes.mode = g.mode as string;
+        if (input.trigger !== undefined) changes.trigger = input.trigger;
+        if (input.condition !== undefined) changes.condition = input.condition;
+        if (input.action !== undefined) changes.action = input.action;
+        if (input.mode !== undefined) changes.mode = input.mode as string;
         const updated = await ha.updateAutomation(configId, changes);
         result = {
           success: true,

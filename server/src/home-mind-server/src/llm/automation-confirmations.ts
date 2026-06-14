@@ -1,25 +1,26 @@
-import { randomUUID } from "node:crypto";
-
 /**
  * Server-enforced confirmation gate for automation changes (create/update/delete).
  *
- * The model's first call to a gated tool issues a token and stores the pending
- * payload WITHOUT making any change. The change is only applied on a second call
- * that supplies the matching token — AND that comes in a later assistant turn
- * (different `turnId`), which forces a real user reply in between. This makes
- * "ask before changing" a hard requirement, not just a prompt instruction.
+ * Constraint that shapes this design: the conversation store only persists final
+ * user/assistant TEXT, never tool calls/results. So a confirmation token returned
+ * in a tool result cannot survive to the next turn — the model can't echo it back.
+ *
+ * Instead we track the previewed change server-side, keyed by conversation, and
+ * commit when the model calls the SAME tool with the SAME (normalized) arguments
+ * in a LATER turn — which is exactly what happens after the user replies "yes".
+ * No token to carry. A different payload re-previews (handles "actually make it
+ * 1pm"); the per-turn nonce blocks committing in the same turn it was previewed.
  */
 
-interface PendingConfirmation {
-  token: string;
+interface PendingPreview {
   toolName: string;
-  input: Record<string, unknown>;
+  fingerprint: string;
   turnId: string;
   createdAt: number;
 }
 
 const TTL_MS = 15 * 60 * 1000; // 15 minutes
-const pending = new Map<string, PendingConfirmation>();
+const pending = new Map<string, PendingPreview>();
 
 function pruneExpired(now: number): void {
   for (const [key, entry] of pending) {
@@ -27,72 +28,99 @@ function pruneExpired(now: number): void {
   }
 }
 
+/** Deterministic JSON with sorted object keys, so key order never affects equality. */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    const keys = Object.keys(value as Record<string, unknown>).sort();
+    return `{${keys
+      .map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+/** Normalize an alias for comparison: drop the "Nives: " prefix, trim, lowercase. */
+function aliasKey(alias: unknown): string {
+  return String(alias ?? "")
+    .replace(/^nives:\s*/i, "")
+    .trim()
+    .toLowerCase();
+}
+
+/** A stable fingerprint of the meaningful change a tool call would make. */
+function fingerprint(toolName: string, input: Record<string, unknown>): string {
+  switch (toolName) {
+    case "create_automation":
+      return stableStringify({
+        alias: aliasKey(input.alias),
+        trigger: input.trigger ?? null,
+        condition: input.condition ?? null,
+        action: input.action ?? null,
+        mode: input.mode ?? null,
+      });
+    case "update_automation": {
+      const fields: Record<string, unknown> = { entity_id: input.entity_id };
+      for (const key of ["alias", "trigger", "condition", "action", "mode"]) {
+        if (input[key] !== undefined) {
+          fields[key] = key === "alias" ? aliasKey(input[key]) : input[key];
+        }
+      }
+      return stableStringify(fields);
+    }
+    case "delete_automation":
+      return stableStringify({ entity_id: input.entity_id });
+    default:
+      return stableStringify(input);
+  }
+}
+
 /**
- * Store a pending change for a conversation and return a fresh confirm token.
- * Overwrites any prior pending confirmation for the same conversation.
+ * Return true if this exact change was previewed for this conversation in an
+ * EARLIER turn (i.e. the user has since replied) — and consume that preview.
+ * Returns false (without consuming) otherwise.
  */
-export function issueConfirmation(
+export function isConfirmed(
   conversationId: string,
   toolName: string,
   input: Record<string, unknown>,
   turnId: string
-): string {
-  const now = Date.now();
-  pruneExpired(now);
-  const token = randomUUID();
-  pending.set(conversationId, { token, toolName, input, turnId, createdAt: now });
-  return token;
-}
-
-export type ConsumeResult =
-  | { ok: true; toolName: string; input: Record<string, unknown> }
-  | { ok: false; reason: string };
-
-/**
- * Validate and consume a confirm token. Fails (without consuming, except on
- * expiry) when there is no match, the tool differs, it has expired, or it is
- * being confirmed in the same turn it was issued (no real user reply yet).
- */
-export function consumeConfirmation(
-  conversationId: string,
-  token: string,
-  toolName: string,
-  turnId: string
-): ConsumeResult {
+): boolean {
   const entry = pending.get(conversationId);
-  if (!entry || entry.token !== token) {
-    return {
-      ok: false,
-      reason:
-        "No matching pending confirmation. Call the tool again WITHOUT confirm_token to get a fresh preview, show it to the user, and only confirm after they reply.",
-    };
-  }
-  if (entry.toolName !== toolName) {
-    return {
-      ok: false,
-      reason: "That confirmation was for a different action. Start over without confirm_token.",
-    };
-  }
+  if (!entry) return false;
   if (Date.now() - entry.createdAt > TTL_MS) {
     pending.delete(conversationId);
-    return {
-      ok: false,
-      reason: "The confirmation expired. Restate the change, ask the user again, then retry.",
-    };
+    return false;
   }
-  if (entry.turnId === turnId) {
-    // Same assistant turn → the user has not actually replied yet.
-    return {
-      ok: false,
-      reason:
-        "Present the preview to the user and wait for their reply BEFORE confirming — do not confirm in the same turn.",
-    };
+  if (
+    entry.toolName === toolName &&
+    entry.turnId !== turnId && // must be a later turn → a real user reply happened
+    entry.fingerprint === fingerprint(toolName, input)
+  ) {
+    pending.delete(conversationId);
+    return true;
   }
-  pending.delete(conversationId);
-  return { ok: true, toolName: entry.toolName, input: entry.input };
+  return false;
 }
 
-/** Drop a conversation's pending confirmation (e.g. the user changed their mind). */
+/** Record that a change was previewed (awaiting the user's confirmation). */
+export function recordPreview(
+  conversationId: string,
+  toolName: string,
+  input: Record<string, unknown>,
+  turnId: string
+): void {
+  const now = Date.now();
+  pruneExpired(now);
+  pending.set(conversationId, {
+    toolName,
+    fingerprint: fingerprint(toolName, input),
+    turnId,
+    createdAt: now,
+  });
+}
+
+/** Drop a conversation's pending preview (e.g. the user changed their mind). */
 export function clearConfirmation(conversationId: string): void {
   pending.delete(conversationId);
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.10
+
+- **Fixed: creating an automation could get stuck re-asking "shall I create it?" without ever creating it.** Confirming now reliably goes through — describe what you want, say yes, and the automation is created.
+
 ## 2.1.9
 
 - **Nives always checks with you before touching your automations.** Creating, editing, or deleting an automation now reliably shows you exactly what it will do and waits for your "yes" first — so nothing in your setup changes without your say-so.
