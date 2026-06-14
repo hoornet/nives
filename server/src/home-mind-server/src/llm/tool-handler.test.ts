@@ -348,16 +348,21 @@ describe("handleToolCall confirmation gate", () => {
     expect(second.success).toBe(true);
   });
 
-  it("a CHANGED payload in a later turn re-previews instead of creating", async () => {
+  it("commits a REFORMATTED create on a later-turn re-call (payload shape is not compared)", async () => {
     await handleToolCall(ha, "create_automation", createInput(), ctx("turn-A"));
-    const changed = (await handleToolCall(
+    // Same intent, different shape than the preview → must still commit (this is the v2.1.11 fix).
+    const second = (await handleToolCall(
       ha,
       "create_automation",
-      { ...createInput(), trigger: { platform: "time", at: "13:00:00" } },
+      {
+        alias: "Nives: Kitchen lights at 20:00",
+        trigger: { at: "20:00:00", platform: "time" },
+        action: { service: "light.turn_on", target: { entity_id: "light.kitchen" } },
+      },
       ctx("turn-B")
-    )) as { confirmation_required?: boolean };
-    expect(ha.createAutomation).not.toHaveBeenCalled();
-    expect(changed.confirmation_required).toBe(true);
+    )) as { success?: boolean };
+    expect(ha.createAutomation).toHaveBeenCalledTimes(1);
+    expect(second.success).toBe(true);
   });
 
   it("without conversation context, creates directly (legacy path)", async () => {

@@ -1,20 +1,27 @@
 /**
  * Server-enforced confirmation gate for automation changes (create/update/delete).
  *
- * Constraint that shapes this design: the conversation store only persists final
- * user/assistant TEXT, never tool calls/results. So a confirmation token returned
- * in a tool result cannot survive to the next turn — the model can't echo it back.
+ * Constraints learned the hard way:
+ *  - The conversation store persists only final user/assistant TEXT, never tool
+ *    calls/results — so a confirmation token returned in a tool result cannot
+ *    survive to the next turn (the model can't echo it back). [killed v2.1.9]
+ *  - The model reformats automation args wildly between calls (action as array vs
+ *    object, service vs service_data, notify.x vs x+domain, alias case…), so
+ *    fingerprinting the full payload almost never matches across turns → endless
+ *    re-preview loop. [killed v2.1.10]
  *
- * Instead we track the previewed change server-side, keyed by conversation, and
- * commit when the model calls the SAME tool with the SAME (normalized) arguments
- * in a LATER turn — which is exactly what happens after the user replies "yes".
- * No token to carry. A different payload re-previews (handles "actually make it
- * 1pm"); the per-turn nonce blocks committing in the same turn it was previewed.
+ * So: the confirmation signal is simply "the same tool was previewed for this
+ * conversation in an EARLIER turn" (i.e. the user has since replied). We do NOT
+ * compare the reformatted payload. For destructive update/delete we additionally
+ * scope by entity_id (a stable string the model doesn't reformat) so confirming
+ * one automation can't accidentally act on a different one. The per-turn nonce
+ * still blocks confirming in the same turn a preview was shown.
  */
 
 interface PendingPreview {
   toolName: string;
-  fingerprint: string;
+  /** "" for create (no sub-identity); the entity_id for update/delete. */
+  identityKey: string;
   turnId: string;
   createdAt: number;
 }
@@ -28,57 +35,18 @@ function pruneExpired(now: number): void {
   }
 }
 
-/** Deterministic JSON with sorted object keys, so key order never affects equality. */
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  if (value && typeof value === "object") {
-    const keys = Object.keys(value as Record<string, unknown>).sort();
-    return `{${keys
-      .map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`)
-      .join(",")}}`;
+/** Stable identity for a change: create has none; update/delete are keyed by entity_id. */
+function identityKey(toolName: string, input: Record<string, unknown>): string {
+  if (toolName === "update_automation" || toolName === "delete_automation") {
+    return String(input.entity_id ?? "").trim();
   }
-  return JSON.stringify(value ?? null);
-}
-
-/** Normalize an alias for comparison: drop the "Nives: " prefix, trim, lowercase. */
-function aliasKey(alias: unknown): string {
-  return String(alias ?? "")
-    .replace(/^nives:\s*/i, "")
-    .trim()
-    .toLowerCase();
-}
-
-/** A stable fingerprint of the meaningful change a tool call would make. */
-function fingerprint(toolName: string, input: Record<string, unknown>): string {
-  switch (toolName) {
-    case "create_automation":
-      return stableStringify({
-        alias: aliasKey(input.alias),
-        trigger: input.trigger ?? null,
-        condition: input.condition ?? null,
-        action: input.action ?? null,
-        mode: input.mode ?? null,
-      });
-    case "update_automation": {
-      const fields: Record<string, unknown> = { entity_id: input.entity_id };
-      for (const key of ["alias", "trigger", "condition", "action", "mode"]) {
-        if (input[key] !== undefined) {
-          fields[key] = key === "alias" ? aliasKey(input[key]) : input[key];
-        }
-      }
-      return stableStringify(fields);
-    }
-    case "delete_automation":
-      return stableStringify({ entity_id: input.entity_id });
-    default:
-      return stableStringify(input);
-  }
+  return "";
 }
 
 /**
- * Return true if this exact change was previewed for this conversation in an
- * EARLIER turn (i.e. the user has since replied) — and consume that preview.
- * Returns false (without consuming) otherwise.
+ * True if this same change was previewed for this conversation in an EARLIER turn
+ * (so the user has since replied) — and consume that preview. Payload formatting
+ * is intentionally NOT compared; update/delete are matched by entity_id.
  */
 export function isConfirmed(
   conversationId: string,
@@ -94,8 +62,8 @@ export function isConfirmed(
   }
   if (
     entry.toolName === toolName &&
-    entry.turnId !== turnId && // must be a later turn → a real user reply happened
-    entry.fingerprint === fingerprint(toolName, input)
+    entry.turnId !== turnId && // a later turn → a real user reply happened
+    entry.identityKey === identityKey(toolName, input)
   ) {
     pending.delete(conversationId);
     return true;
@@ -114,7 +82,7 @@ export function recordPreview(
   pruneExpired(now);
   pending.set(conversationId, {
     toolName,
-    fingerprint: fingerprint(toolName, input),
+    identityKey: identityKey(toolName, input),
     turnId,
     createdAt: now,
   });

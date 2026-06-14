@@ -42,7 +42,7 @@ function gateAutomationChange(
       confirmation_required: true,
       preview: describePending(toolName, input),
       message:
-        "This change has NOT been made yet. Describe the preview to the user in plain language and ask them to confirm. ONLY after they reply with a yes, call this exact tool AGAIN with the same arguments to apply it. (Do not claim it's done until a call returns success.)",
+        "This is a PREVIEW — nothing has changed yet (this is expected, not an error, so do NOT retry or reformat). Tell the user exactly what it will do and ask them to confirm, then STOP and wait — do not call this tool again in this turn. After they reply yes in their NEXT message, call this same tool once more to apply it. Never claim it's done until a call returns \"success\": true.",
     },
   };
 }

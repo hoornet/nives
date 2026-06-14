@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.11
+
+- **Creating an automation now reliably completes on your first "yes."** A follow-up fix to the confirmation flow so it no longer keeps re-asking after you've already confirmed.
+
 ## 2.1.10
 
 - **Fixed: creating an automation could get stuck re-asking "shall I create it?" without ever creating it.** Confirming now reliably goes through — describe what you want, say yes, and the automation is created.
