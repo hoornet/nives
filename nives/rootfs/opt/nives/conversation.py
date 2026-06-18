@@ -126,6 +126,26 @@ class NivesConversationAgent(ConversationEntity):
 
         intent_response = intent.IntentResponse(language=user_input.language)
         intent_response.async_set_speech(response_text)
+
+        # Reopen the satellite mic for a follow-up when we just asked a question,
+        # mirroring Home Assistant's built-in agents (continue_conversation is True
+        # when the response ends with a question mark — "?" or full-width "？").
+        # Guarded: older HA versions' ConversationResult has no such field.
+        continue_conversation = bool(response_text) and response_text.rstrip().endswith(
+            ("?", "？")
+        )
+        if continue_conversation:
+            try:
+                return ConversationResult(
+                    response=intent_response,
+                    conversation_id=conversation_id,
+                    continue_conversation=True,
+                )
+            except TypeError:
+                _LOGGER.debug(
+                    "ConversationResult has no continue_conversation field on this HA version"
+                )
+
         return ConversationResult(
             response=intent_response,
             conversation_id=conversation_id,

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.13
+
+- **Voice follow-ups now keep listening.** On Home Assistant Voice (and other Assist satellites), when Nives ends a reply with a question it now tells Home Assistant to reopen the microphone — so you can answer straight away without repeating the wake word. Thanks to the detailed community report that pinpointed this.
+
 ## 2.1.12
 
 - **More reliable automation actions.** Nives now builds notification and device actions correctly even if the underlying details are phrased loosely — so creating an automation that messages your phone just works.
