@@ -28,6 +28,13 @@ if [ "$NEEDS_UPDATE" = "true" ]; then
     mkdir -p "$TARGET"
     cp -f "$SOURCE"/*.py "$TARGET/"
     cp -f "$SOURCE"/*.json "$TARGET/"
+    # Brand images: HA 2026.3+ serves icon/logo from the integration's brand/
+    # folder (local images take priority over the brands CDN). Replace wholesale
+    # so stale assets don't linger across updates.
+    if [ -d "$SOURCE/brand" ]; then
+        rm -rf "$TARGET/brand"
+        cp -rf "$SOURCE/brand" "$TARGET/"
+    fi
     echo "[integration] Nives integration installed at $TARGET"
 
     # Restart HA Core so it picks up the new integration files and processes discovery.

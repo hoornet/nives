@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.15
+
+- **Nives now has its icon in the Integrations dashboard.** The integration ships its own brand icon and logo, so the "icon not available" placeholder is replaced with the Nives mark (on Home Assistant 2026.3 and newer).
+
 ## 2.1.14
 
 - **Automations now use what Nives knows about you.** Ask for something like "turn on the lights every evening" and Nives uses *your* sense of evening (or your preferred brightness) instead of a generic guess — and if it doesn't know yet, it'll ask once and remember for next time.
