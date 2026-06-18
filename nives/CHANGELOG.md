@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.0
+
+- **Nives can now power AI Task automations.** Use the `ai_task.generate_data` action to get an answer — or structured data — reasoned with what Nives knows about you. For example, triage a motion or doorbell event into a priority level right inside an automation. (Text for now; image analysis is coming later.)
+
 ## 2.1.15
 
 - **Nives now has its icon in the Integrations dashboard.** The integration ships its own brand icon and logo, so the "icon not available" placeholder is replaced with the Nives mark (on Home Assistant 2026.3 and newer).

@@ -4,10 +4,10 @@
   "codeowners": ["@hoornet"],
   "config_flow": true,
   "after_dependencies": ["hassio"],
-  "dependencies": ["conversation"],
+  "dependencies": ["conversation", "ai_task"],
   "documentation": "https://github.com/hoornet/nives",
   "integration_type": "service",
   "iot_class": "local_polling",
   "requirements": ["aiohttp>=3.8.0"],
-  "version": "2.1.15"
+  "version": "2.2.0"
 }

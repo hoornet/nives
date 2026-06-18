@@ -14,3 +14,12 @@ API_CHAT_ENDPOINT = "/api/chat"
 API_HEALTH_ENDPOINT = "/api/health"
 
 CLOUD_SIGNUP_URL = "https://nives.house"
+
+# System-prompt override for AI Task requests. Keeps task output clean and
+# literal, instead of the chatty smart-home assistant persona. Intentionally
+# separate from CONF_CUSTOM_PROMPT (the user's conversation persona).
+AI_TASK_CUSTOM_PROMPT = (
+    "You are a data-generation assistant for Home Assistant. Follow the "
+    "instructions exactly and output only what is asked — no greetings, "
+    "commentary, or chit-chat."
+)
