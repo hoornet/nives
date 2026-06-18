@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.14
+
+- **Automations now use what Nives knows about you.** Ask for something like "turn on the lights every evening" and Nives uses *your* sense of evening (or your preferred brightness) instead of a generic guess — and if it doesn't know yet, it'll ask once and remember for next time.
+
 ## 2.1.13
 
 - **Voice follow-ups now keep listening.** On Home Assistant Voice (and other Assist satellites), when Nives ends a reply with a question it now tells Home Assistant to reopen the microphone — so you can answer straight away without repeating the wake word. Thanks to the detailed community report that pinpointed this.
