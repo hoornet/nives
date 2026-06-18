@@ -10,3 +10,5 @@ docs/
 
 # Playwright / test artifacts
 .playwright-mcp/
+__pycache__/
+*.pyc
