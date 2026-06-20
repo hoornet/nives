@@ -405,6 +405,13 @@ export class HomeAssistantClient {
     changes: Partial<AutomationConfig>
   ): Promise<CreatedAutomation> {
     const current = await this.getAutomationConfig(id);
+    // HA's config API returns plural keys (triggers/conditions/actions); older
+    // forms / our POST body use singular. Read BOTH so an un-changed field is
+    // preserved from current instead of being wiped to [] (this silently
+    // destroyed actions on trigger-only updates before the fix).
+    const curTrigger = current.trigger ?? current.triggers;
+    const curCondition = current.condition ?? current.conditions;
+    const curAction = current.action ?? current.actions;
     const merged = {
       id,
       alias: changes.alias ?? (current.alias as string),
@@ -413,15 +420,15 @@ export class HomeAssistantClient {
       trigger:
         changes.trigger !== undefined
           ? this.toArray(changes.trigger)
-          : this.toArray(current.trigger),
+          : this.toArray(curTrigger),
       condition:
         changes.condition !== undefined
           ? this.toArray(changes.condition)
-          : this.toArray(current.condition),
+          : this.toArray(curCondition),
       action: this.normalizeActions(
         changes.action !== undefined
           ? this.toArray(changes.action)
-          : this.toArray(current.action)
+          : this.toArray(curAction)
       ),
     };
 

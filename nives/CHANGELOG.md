@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.3
+
+- **Fixed: editing an automation now keeps the parts you didn't change.** When you asked Nives to change one thing about an existing automation (e.g. its timing), the other parts (like its actions) could be dropped. Editing now preserves everything you didn't explicitly change.
+
 ## 2.2.2
 
 - **Cleaner replies in Assist.** Nives now answers in plain text (no stray `*` / `**` markdown characters, which the Assist app showed literally) and refers to your devices by their friendly names instead of technical entity IDs — so responses read naturally on voice and on your phone.

@@ -200,14 +200,16 @@ describe("HomeAssistantClient.updateAutomation", () => {
 
       const configMatch = url.match(/\/api\/config\/automation\/config\/(\d+)$/);
       if (configMatch && method === "GET") {
+        // HA's config API returns PLURAL keys (triggers/conditions/actions) —
+        // the merge must read these to preserve un-changed fields.
         return new Response(
           JSON.stringify({
             id: configMatch[1],
             alias: "Nives: Living room light off at 23:00",
             mode: "single",
-            trigger: [{ platform: "time", at: "23:00:00" }],
-            condition: [],
-            action: [{ service: "light.turn_off", target: { entity_id: "light.living_room" } }],
+            triggers: [{ platform: "time", at: "23:00:00" }],
+            conditions: [],
+            actions: [{ service: "light.turn_off", target: { entity_id: "light.living_room" } }],
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
