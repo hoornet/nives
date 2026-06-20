@@ -92,10 +92,32 @@ export class LLMClient implements IChatEngine {
       }
     }
 
-    // 4. Add current user message
-    messages.push({ role: "user", content: message });
+    // 4. Add current user message (multimodal when images are present)
+    if (request.images && request.images.length > 0) {
+      const imageBlocks: Anthropic.ImageBlockParam[] = request.images.map((img) => {
+        const m = /^data:([^;]+);base64,(.*)$/s.exec(img);
+        if (m) {
+          return {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: m[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+              data: m[2],
+            },
+          };
+        }
+        // Plain URL
+        return { type: "image", source: { type: "url", url: img } };
+      });
+      messages.push({
+        role: "user",
+        content: [{ type: "text", text: message }, ...imageBlocks],
+      });
+    } else {
+      messages.push({ role: "user", content: message });
+    }
 
-    // Store user message in conversation history
+    // Store user message in conversation history (text only; images are ephemeral)
     if (conversationId) {
       this.conversations.storeMessage(conversationId, userId, "user", message);
     }

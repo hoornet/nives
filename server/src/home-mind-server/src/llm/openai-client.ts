@@ -101,9 +101,24 @@ export class OpenAIChatEngine implements IChatEngine {
       }
     }
 
-    // 4. Add current user message
-    messages.push({ role: "user", content: message });
+    // 4. Add current user message (multimodal when images are present)
+    if (request.images && request.images.length > 0) {
+      messages.push({
+        role: "user",
+        content: [
+          { type: "text", text: message },
+          ...request.images.map((url) => ({
+            type: "image_url" as const,
+            // detail:"low" keeps token cost bounded for routine snapshots
+            image_url: { url, detail: "low" as const },
+          })),
+        ],
+      });
+    } else {
+      messages.push({ role: "user", content: message });
+    }
 
+    // Persist only the text to conversation history (images are ephemeral to this turn).
     if (conversationId) {
       this.conversations.storeMessage(conversationId, userId, "user", message);
     }

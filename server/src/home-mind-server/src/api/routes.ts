@@ -16,6 +16,10 @@ const ChatRequestSchema = z.object({
   conversationId: z.string().optional(),
   isVoice: z.boolean().default(false),
   customPrompt: z.string().optional(),
+  // Optional images for vision-capable models. Each is a data URL
+  // ("data:image/jpeg;base64,…") or a plain https URL. Forwarded to the model
+  // as image content; ignored by text-only models.
+  images: z.array(z.string()).optional(),
 });
 
 const AddFactSchema = z.object({

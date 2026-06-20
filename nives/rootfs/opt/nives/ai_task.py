@@ -2,11 +2,13 @@
 
 Exposes Nives as a Home Assistant AI Task provider so automations/scripts can
 call `ai_task.generate_data` for text or structured (JSON) output, reasoned with
-the user's Nives memory. Text-only for now (no image/vision attachments).
+the user's Nives memory. Supports image attachments (e.g. a camera snapshot) for
+vision-capable models.
 """
 
 from __future__ import annotations
 
+import base64
 import logging
 
 import aiohttp
@@ -41,7 +43,10 @@ class NivesAITaskEntity(ai_task.AITaskEntity):
 
     _attr_has_entity_name = True
     _attr_name = "AI Task"
-    _attr_supported_features = ai_task.AITaskEntityFeature.GENERATE_DATA
+    _attr_supported_features = (
+        ai_task.AITaskEntityFeature.GENERATE_DATA
+        | ai_task.AITaskEntityFeature.SUPPORT_ATTACHMENTS
+    )
 
     def __init__(self, hass: HomeAssistant, entry: NivesConfigEntry) -> None:
         """Initialize the AI Task entity."""
@@ -78,7 +83,8 @@ class NivesAITaskEntity(ai_task.AITaskEntity):
                 f"the JSON object.\nSchema:\n{schema}"
             )
 
-        response_text = await self._call_nives(message)
+        images = await self._collect_images(task)
+        response_text = await self._call_nives(message, images)
 
         if task.structure is None:
             return ai_task.GenDataTaskResult(
@@ -107,7 +113,32 @@ class NivesAITaskEntity(ai_task.AITaskEntity):
             data=validated,
         )
 
-    async def _call_nives(self, message: str) -> str:
+    async def _collect_images(self, task: ai_task.GenDataTask) -> list[str]:
+        """Turn image attachments into base64 data URLs for the Nives server.
+
+        Reads file bytes off the event loop (blocking I/O). Non-image
+        attachments are ignored. Vision needs a multimodal model on the
+        configured tier/provider.
+        """
+        attachments = getattr(task, "attachments", None)
+        if not attachments:
+            return []
+
+        images: list[str] = []
+        for att in attachments:
+            mime = getattr(att, "mime_type", "") or ""
+            if not mime.startswith("image/"):
+                continue
+            try:
+                raw = await self.hass.async_add_executor_job(att.path.read_bytes)
+            except OSError as err:
+                _LOGGER.warning("Could not read attachment %s: %s", att.path, err)
+                continue
+            b64 = base64.b64encode(raw).decode("ascii")
+            images.append(f"data:{mime};base64,{b64}")
+        return images
+
+    async def _call_nives(self, message: str, images: list[str] | None = None) -> str:
         """POST a one-shot, memory-aware request to the Nives server.
 
         Stateless (no conversationId, so it never touches conversation history)
@@ -122,6 +153,8 @@ class NivesAITaskEntity(ai_task.AITaskEntity):
             "userId": data.user_id,
             "customPrompt": AI_TASK_CUSTOM_PROMPT,
         }
+        if images:
+            payload["images"] = images
         headers: dict = {}
         if data.api_token:
             headers["Authorization"] = f"Bearer {data.api_token}"

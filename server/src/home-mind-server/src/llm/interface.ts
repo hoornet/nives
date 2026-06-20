@@ -14,6 +14,8 @@ export interface ChatRequest {
   conversationId?: string;
   isVoice?: boolean;
   customPrompt?: string;
+  /** Optional images (data URLs or https URLs) for vision-capable models. */
+  images?: string[];
 }
 
 /**

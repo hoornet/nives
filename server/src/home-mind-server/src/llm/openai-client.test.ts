@@ -118,6 +118,45 @@ describe("OpenAIChatEngine", () => {
     expect(result.response).toBe("Hello world");
   });
 
+  it("sends images as image_url content blocks when provided", async () => {
+    mockCreate.mockResolvedValue(
+      makeStream([
+        { choices: [{ delta: { content: "ok" }, finish_reason: null }] },
+        { choices: [{ delta: {}, finish_reason: "stop" }] },
+      ])
+    );
+
+    await engine.chat({
+      message: "What's in this image?",
+      userId: "user-1",
+      images: ["data:image/png;base64,AAAA"],
+    });
+
+    const sent = mockCreate.mock.calls[0][0];
+    const userMsg = [...sent.messages].reverse().find((m: { role: string }) => m.role === "user");
+    expect(Array.isArray(userMsg.content)).toBe(true);
+    expect(userMsg.content[0]).toEqual({ type: "text", text: "What's in this image?" });
+    expect(userMsg.content[1]).toMatchObject({
+      type: "image_url",
+      image_url: { url: "data:image/png;base64,AAAA" },
+    });
+  });
+
+  it("sends a plain string user message when no images", async () => {
+    mockCreate.mockResolvedValue(
+      makeStream([
+        { choices: [{ delta: { content: "ok" }, finish_reason: null }] },
+        { choices: [{ delta: {}, finish_reason: "stop" }] },
+      ])
+    );
+
+    await engine.chat({ message: "Hello", userId: "user-1" });
+
+    const sent = mockCreate.mock.calls[0][0];
+    const userMsg = [...sent.messages].reverse().find((m: { role: string }) => m.role === "user");
+    expect(userMsg.content).toBe("Hello");
+  });
+
   it("fires onChunk callback for each text delta", async () => {
     mockCreate.mockResolvedValue(
       makeStream([

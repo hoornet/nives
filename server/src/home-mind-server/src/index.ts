@@ -94,7 +94,9 @@ if (config.corsOrigins) {
   console.log(`  CORS: ${origins.join(", ")}`);
 }
 
-app.use(express.json());
+// 20mb so base64-encoded camera snapshots (images on /api/chat) aren't rejected
+// by the 100kb default. Aligns with the 25mb multer limit used for audio uploads.
+app.use(express.json({ limit: "20mb" }));
 
 // API token auth (only when API_TOKEN is configured)
 const authMiddleware = createAuthMiddleware(config.apiToken);

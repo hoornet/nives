@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.0
+
+- **Nives can now look at images.** AI Task (`ai_task.generate_data`) accepts image attachments — e.g. hand it a camera snapshot and ask "is this expected?" and Nives reasons about what it sees, with your home's context. Great for smart, low-false-alarm camera/doorbell notifications. (Requires a vision-capable model — all Premium models and most Standard ones qualify.)
+
 ## 2.2.3
 
 - **Fixed: editing an automation now keeps the parts you didn't change.** When you asked Nives to change one thing about an existing automation (e.g. its timing), the other parts (like its actions) could be dropped. Editing now preserves everything you didn't explicitly change.
