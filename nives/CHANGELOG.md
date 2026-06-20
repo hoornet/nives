@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.2
+
+- **Cleaner replies in Assist.** Nives now answers in plain text (no stray `*` / `**` markdown characters, which the Assist app showed literally) and refers to your devices by their friendly names instead of technical entity IDs — so responses read naturally on voice and on your phone.
+
 ## 2.2.1
 
 - Security and dependency refresh for the bundled server (updated file-upload handling, the network client, and the Anthropic client, among others). No change in behaviour — quiet housekeeping.
