@@ -19,6 +19,13 @@ Nives bundles two services in one add-on:
 - **Nives Server** — AI conversation engine that understands your smart home. Connects to Home Assistant automatically — no URL or token needed.
 - **Shodh Memory** — Cognitive memory system with semantic search. Remembers your preferences, routines, and device configurations across conversations.
 
+## What Nives Can Do
+
+- **Answer & control** — ask about any sensor or device, and control them by voice or text ("dim the lounge", "is the bedroom warm?").
+- **Remember** — tell it your preferences, baselines, and nicknames once; it uses them across every conversation.
+- **Create & manage automations** — ask it to set up, change, list, or delete automations ("turn the porch light on at sunset every day"). It always shows what it will do and waits for your confirmation, and names its automations with a `Nives:` prefix so you can find them under Settings → Automations.
+- **Power your automations (AI Task)** — Nives registers an `ai_task` entity, so any automation can call `ai_task.generate_data` to get an answer or structured data reasoned with your home's context. With a vision-capable model it can also analyze an **image attachment** (e.g. a camera snapshot) — useful for smarter, low-false-alarm camera/doorbell notifications.
+
 ---
 
 ## Cloud Mode (recommended)
@@ -27,7 +34,7 @@ Use Nives Cloud — a managed AI service with a monthly token budget. No API key
 
 ### Setup
 
-1. Sign up at [nives.house](https://nives.house) and choose a plan (Starter, Standard, or Premium)
+1. Sign up at [nives.house](https://nives.house) and choose a plan (Standard or Premium)
 2. Copy your **Nives API Key** from your dashboard
 3. In the add-on Configuration tab:
    - Set **LLM Mode** to `cloud`

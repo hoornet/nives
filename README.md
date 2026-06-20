@@ -14,6 +14,8 @@
 - **Persistent memory** — preferences, routines, sensor baselines, device nicknames. Survives restarts.
 - **Natural voice & text control** through Home Assistant Assist.
 - **Knows your home** — reads your floors, areas, and device capabilities, so it always knows which room a light is in and how to control it.
+- **Creates & manages automations** — just ask ("turn the porch light on at sunset", "make the evening scene 30 minutes earlier") and Nives builds, edits, lists, or removes Home Assistant automations for you — always confirming before it changes anything, and using what it remembers about your home (your "evening", your preferred brightness).
+- **Works inside your automations** — Nives is also a Home Assistant **AI Task** provider: call `ai_task.generate_data` from any automation to get an answer or structured data, reasoned with your home's context. It can even look at a **camera snapshot** and tell you what matters (with a vision-capable model) — great for smarter, low-false-alarm camera and doorbell alerts.
 - **Private by default** — your memories live on your Home Assistant machine and never leave your network.
 - **Two ways to power it** — managed **Nives Cloud** (recommended) or **bring your own key**. Both run the exact same on-device server and memory; only the AI endpoint differs.
 
