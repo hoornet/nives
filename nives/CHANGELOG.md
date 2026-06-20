@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.1
+
+- Security and dependency refresh for the bundled server (updated file-upload handling, the network client, and the Anthropic client, among others). No change in behaviour — quiet housekeeping.
+
 ## 2.2.0
 
 - **Nives can now power AI Task automations.** Use the `ai_task.generate_data` action to get an answer — or structured data — reasoned with what Nives knows about you. For example, triage a motion or doorbell event into a priority level right inside an automation. (Text for now; image analysis is coming later.)
