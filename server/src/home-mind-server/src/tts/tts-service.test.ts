@@ -33,6 +33,29 @@ describe("OpenAITtsService", () => {
     );
   });
 
+  it("spells whole numbers out on the way to the voice", async () => {
+    // The reply the user sees keeps its digits; only what the voice receives changes.
+    const create = vi.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
+    const svc = new OpenAITtsService("k", "m", "v", "https://example.invalid/v1", "sl");
+    (svc as unknown as { client: { audio: { speech: { create: typeof create } } } }).client = {
+      audio: { speech: { create } },
+    };
+    await svc.synthesize("VOC je 156 enot, PM2,5 pa 8,6 mikrograma.");
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ input: "VOC je sto šestinpetdeset enot, PM2,5 pa 8,6 mikrograma." })
+    );
+  });
+
+  it("leaves the text alone when the voice is not Slovene", async () => {
+    const create = vi.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
+    const svc = new OpenAITtsService("k", "m", "v", "https://example.invalid/v1", "en");
+    (svc as unknown as { client: { audio: { speech: { create: typeof create } } } }).client = {
+      audio: { speech: { create } },
+    };
+    await svc.synthesize("156 units");
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ input: "156 units" }));
+  });
+
   it("returns the audio as a Buffer", async () => {
     const { svc } = serviceWithSpy();
     expect(Buffer.isBuffer(await svc.synthesize("Dober dan."))).toBe(true);
