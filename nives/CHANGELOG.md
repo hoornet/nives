@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.1
+
+- **Large homes get their rooms back.** If you have a few thousand entities, Nives could not read your home's layout at all — the log said `Template output exceeded maximum size of 262144 characters` — so she did not know which room anything was in. She now reads the layout in smaller pieces, and asks Home Assistant only for the kinds of entity she actually uses, so it works however large your home is. Bundles server 0.15.14.
+
 ## 2.6.0
 
 - **Nives can speak, in a voice that is actually Slovene.** Choose a **Voice** in the add-on's Configuration tab and Nives appears as a **Text-to-speech** option in your Assist pipeline (Settings → Voice assistants), reading her replies aloud. Two voices to start with, one female and one male, both native Slovene rather than a foreign voice sounding out the words — the difference is not subtle, and it is what took so long to find. Replies come back in about a second. Speaking is paid from the same balance as your conversations and is off until you pick a voice. More languages will follow as each one is tested; a voice ships only when it is genuinely good enough in that language.
