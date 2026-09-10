@@ -47,23 +47,35 @@ describe("spokenVoicePointer writing rules", () => {
   // The wrong forms are unintelligible, not merely clumsy, so each keeps its own test.
   const p = spokenVoicePointer("female");
 
-  it("demands a space between the number and the unit symbol", () => {
-    // "60%" was spoken "šest nič" — the two digits, separately.
-    expect(p).toContain('"60 %"');
-    expect(p).toMatch(/NEVER close the symbol up against the number/);
+  it("states the mechanism, so it reaches units nobody tested", () => {
+    // The rule used to be a list of the units this house happens to have, which could
+    // only ever cover what we had heard. Naming the cause is what makes it generalise:
+    // a wide check over twelve unfamiliar payloads got dBm, µS/cm, W/m², lx, hPa and
+    // Mbps right without any of them being mentioned here.
+    expect(p).toMatch(/CANNOT\s+inflect/);
+    expect(p).toMatch(/for ANY unit, including ones not listed here/);
   });
 
-  it("demands the degree symbol over a bare letter", () => {
-    // "19 stopinj C" was spoken "devetnajstih stopinj ce": the letter read aloud, and
-    // the number pushed into the wrong case as well.
+  it("keeps °C and % as symbols, the only two the voice inflects itself", () => {
+    // Verified by ear across 1, 2, 3 and 5, where Slovene needs stopinja / stopinji /
+    // stopinje / stopinj. Everything else the voice locks to one form and gets wrong.
+    expect(p).toMatch(/ONLY two exceptions are °C and %/);
     expect(p).toContain('"19 °C"');
+    expect(p).toContain('"60 %"');
+    expect(p).toMatch(/NEVER close the symbol up against the number/);
     expect(p).toMatch(/devetnajstih stopinj ce/);
   });
 
-  it("requires units with no readable symbol to be written out", () => {
-    // "µg/m³" was spoken "g m" — micro and cubic silently dropped.
+  it("requires every other unit to be written out", () => {
     expect(p).toContain("mikrograma na kubični meter");
     expect(p).toContain("µg/m³");
+    expect(p).toContain("kilovatnih ur");
+  });
+
+  it("writes initialisms as spaced letter names", () => {
+    // "CO2" was spoken "kod ve"; "VOC" ran together into a non-word.
+    expect(p).toContain("Ve o ce");
+    expect(p).toContain("Ce o dva");
   });
 
   it("forbids ending a sentence with a digit", () => {

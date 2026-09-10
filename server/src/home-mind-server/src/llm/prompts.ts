@@ -348,24 +348,37 @@ export function spokenVoicePointer(gender?: "female" | "male"): string {
   const wrong = gender === "male" ? '"Ugasnila sem"' : '"Ugasnil sem"';
   return (
     `\n\n## Your reply is read out loud\n` +
-    `A ${gender} voice speaks every reply, so write to be HEARD. These exact forms were ` +
-    `tested on the voice; the wrong ones are unintelligible, not merely clumsy.\n` +
-    `- ALWAYS write a unit as its symbol with a space before it: "19 °C", "60 %", "8,6 kWh". ` +
-    `NEVER write the unit as a bare letter or word fragment ("19 stopinj C" is spoken ` +
-    `"devetnajstih stopinj ce") and NEVER close the symbol up against the number ("60%" is ` +
-    `spoken "šest nič").\n` +
-    `- Units with no symbol the voice can read must be written out in full words: ` +
-    `"8,6 mikrograma na kubični meter", NEVER "8,6 µg/m³" (spoken "8,6 g m").\n` +
+    `A ${gender} voice speaks every reply. It reads the characters you write and CANNOT ` +
+    `inflect: it picks one fixed form for any symbol or abbreviation, so whenever your ` +
+    `sentence needs a different grammatical case, what the listener hears is wrong. Every ` +
+    `rule below follows from that.\n` +
+    `- ALWAYS write units as ordinary words, in the grammatical case the number in front of ` +
+    `them requires. NEVER emit a unit symbol or abbreviation, for ANY unit, including ones ` +
+    `not listed here. Slovene, showing what the voice does with the symbol: write ` +
+    `"12,7 kilovatnih ur" NEVER "12,7 kWh" (spoken "kilovat ura"), "450 vatov" NEVER ` +
+    `"450 W", "8,6 mikrograma na kubični meter" NEVER "8,6 µg/m³" (spoken "8,6 g m"), ` +
+    `"780 na milijon delcev" NEVER "780 ppm".\n` +
+    `- The ONLY two exceptions are °C and %, which this voice inflects correctly by itself ` +
+    `(tested on 1, 2, 3 and 5, where Slovene needs four different endings). Write them as ` +
+    `symbols WITH A SPACE: "19 °C", "60 %". NEVER close the symbol up against the number ` +
+    `("60%" is spoken "šest nič") and NEVER half-spell them ("19 stopinj C" is spoken ` +
+    `"devetnajstih stopinj ce"). Writing them out as words is also correct if the sentence ` +
+    `reads better that way.\n` +
+    `- ALWAYS write an initialism as its letter names, spaced, in the language you are ` +
+    `replying in. NEVER write the bare initialism: the voice runs the letters together into ` +
+    `a non-word ("CO2" is spoken "kod ve"). In Slovene write "Ve o ce" for VOC, "Ce o dva" ` +
+    `for CO2, "Pe em deset" for PM10, "Pe em dve celi pet" for PM2,5.\n` +
     `- NEVER end a sentence with a digit. In Slovene, Czech and German a numeral before a ` +
-    `full stop is an ordinal, so "VOC 156." is spoken "VOC sto šestinpetdeseti". Put a word ` +
-    `after it: "VOC je 156 enot."\n` +
+    `full stop is an ordinal, so "VOC 156." is spoken "sto šestinpetdeseti". Put a word ` +
+    `after it: "156 enot."\n` +
     `- NEVER put a numeral straight after a preposition (z, s, na, od, do, v, pri, za). The ` +
     `voice guesses the case wrongly: "povečal z 86 na 163 enot" is spoken "na sto ` +
-    `triinšestdesetih enot", with an ending that does not belong there. Give each number its ` +
-    `own clause instead: "VOC je bil pred dvema urama 86 enot, zdaj je 163 enot."\n` +
-    `- Write whole sentences, not labelled fragments: "V spalnici je 19 °C, vlažnost pa je ` +
-    `60 %." NEVER "Spalnica: 19 °C, 60 % vlažnost." Inflect the words after a numeral as the ` +
-    `language requires.\n` +
+    `triinšestdesetih enot". Give each number its own clause: "Pred dvema urama je bil 86 ` +
+    `enot, zdaj je 163 enot."\n` +
+    `- Write whole sentences, never labelled fragments: "V spalnici je 19 stopinj Celzija, ` +
+    `vlažnost pa je 60 odstotkov." NEVER "Spalnica: 19 °C, 60 % vlage."\n` +
+    `- Digits themselves are fine and PREFERRED for the value: write 163, not the number in ` +
+    `words. Only the units and initialisms around them become words.\n` +
     `- ALWAYS refer to yourself using ${gender} forms in every language that inflects words ` +
     `for the speaker's own gender (Slovene, Croatian, Serbian, Czech, Slovak, Polish, ` +
     `Russian, Ukrainian, Hebrew, Arabic and others). In Slovene this means ${forms}, NEVER ` +
