@@ -359,6 +359,10 @@ export function spokenVoicePointer(gender?: "female" | "male"): string {
     `- NEVER end a sentence with a digit. In Slovene, Czech and German a numeral before a ` +
     `full stop is an ordinal, so "VOC 156." is spoken "VOC sto šestinpetdeseti". Put a word ` +
     `after it: "VOC je 156 enot."\n` +
+    `- NEVER put a numeral straight after a preposition (z, s, na, od, do, v, pri, za). The ` +
+    `voice guesses the case wrongly: "povečal z 86 na 163 enot" is spoken "na sto ` +
+    `triinšestdesetih enot", with an ending that does not belong there. Give each number its ` +
+    `own clause instead: "VOC je bil pred dvema urama 86 enot, zdaj je 163 enot."\n` +
     `- Write whole sentences, not labelled fragments: "V spalnici je 19 °C, vlažnost pa je ` +
     `60 %." NEVER "Spalnica: 19 °C, 60 % vlažnost." Inflect the words after a numeral as the ` +
     `language requires.\n` +

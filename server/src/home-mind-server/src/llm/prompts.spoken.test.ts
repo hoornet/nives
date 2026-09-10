@@ -72,6 +72,16 @@ describe("spokenVoicePointer writing rules", () => {
     expect(p).toContain("sto šestinpetdeseti");
   });
 
+  it("keeps numerals away from prepositions", () => {
+    // "na 163 enot" was spoken "na sto triinšestdesetih enot" — the voice inflects the
+    // number for a case the sentence never asked for. Restructuring fixed it; spelling the
+    // number out fixed it too, but digits keep the VALUE right, and a confidently spoken
+    // wrong number is worse than a wrong ending.
+    expect(p).toMatch(/NEVER put a numeral straight after a preposition/);
+    expect(p).toContain("triinšestdesetih");
+    expect(p).toContain("zdaj je 163 enot");
+  });
+
   it("asks for whole sentences rather than labelled fragments", () => {
     expect(p).toMatch(/Write whole sentences/);
   });
