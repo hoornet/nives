@@ -30,10 +30,67 @@ const LAYOUT = {
   ],
 };
 
-function makeHa(layout: unknown = LAYOUT): HomeAssistantClient {
+/**
+ * The layout now arrives in two kinds of call — the structure, then entities for
+ * a batch of areas — so the fake answers whichever it was asked for. `cap`
+ * imitates Home Assistant's 262 144-character limit by refusing any render whose
+ * result would be larger, which is the failure in home-mind#34.
+ */
+function makeHa(layout: any = LAYOUT, cap = Infinity): HomeAssistantClient {
+  const areas: { id: string; name: string; entities: string[] }[] = [
+    ...layout.floors.flatMap((f: any) => f.areas),
+    ...layout.unassigned,
+  ];
+  const renderTemplate = vi.fn(async (template: string) => {
+    if (template.includes("floor_name")) {
+      const strip = (a: any) => ({ id: a.id, name: a.name, total: a.entities.length });
+      return JSON.stringify({
+        floors: layout.floors.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          areas: f.areas.map(strip),
+        })),
+        unassigned: layout.unassigned.map(strip),
+      });
+    }
+    const asked: string[] = JSON.parse(template.match(/for aid in (\[.*?\])/s)![1]);
+    // The template prefilters by domain when the caller passed one.
+    const doms: string[] | null = template.includes("e.split('.')[0] in ")
+      ? JSON.parse(template.match(/e\.split\('\.'\)\[0\] in (\[.*?\])/s)![1])
+      : null;
+    const rows = asked.map((id) => {
+      const area = areas.find((a) => a.id === id)!;
+      const entities = doms
+        ? area.entities.filter((e) => doms.includes(e.slice(0, e.indexOf("."))))
+        : area.entities;
+      return { id, entities };
+    });
+    const body = JSON.stringify(rows);
+    if (body.length > cap) throw new Error(`HA API error 400: Error rendering template: Template output exceeded maximum size of ${cap} characters`);
+    return body;
+  });
+  return { renderTemplate } as unknown as HomeAssistantClient;
+}
+
+/** A house the size of the one in home-mind#34. */
+function bigHouse(areaCount: number, perArea: number) {
+  const area = (i: number) => ({
+    id: `area${i}`,
+    name: `Area ${i}`,
+    entities: Array.from({ length: perArea }, (_, j) =>
+      j % 3 === 0 ? `light.a${i}_e${j}` : `number.a${i}_e${j}`
+    ),
+  });
   return {
-    renderTemplate: vi.fn().mockResolvedValue(JSON.stringify(layout)),
-  } as unknown as HomeAssistantClient;
+    floors: [
+      {
+        id: "ground",
+        name: "Ground floor",
+        areas: Array.from({ length: areaCount }, (_, i) => area(i)),
+      },
+    ],
+    unassigned: [],
+  };
 }
 
 describe("TopologyScanner layout filtering", () => {
@@ -174,5 +231,90 @@ describe("TopologyScanner layout filtering", () => {
     await scanner.scan();
 
     expect(scanner.formatSection()).toBe(good);
+  });
+});
+
+describe("TopologyScanner on a large home (home-mind#34)", () => {
+  // Reported: 9 059 entities across 31 areas, and every scan failed with
+  // "Template output exceeded maximum size of 262144 characters", so the layout
+  // was never available at all.
+  const CAP = 262144;
+
+  it("still returns a layout where the old single call would have failed", async () => {
+    const house = bigHouse(31, 292); // ~9 052 entities, like the report
+    const ha = makeHa(house, CAP);
+    const scanner = new TopologyScanner(ha);
+    await scanner.scan();
+
+    const section = scanner.formatSection();
+    expect(section).toContain("Area 0");
+    expect(section).toContain("Area 30");
+    expect(section).toContain("light.a0_e0");
+  });
+
+  it("splits the request rather than giving up when one call is too big", async () => {
+    // A cap low enough that even the domain-filtered batch has to be halved.
+    const house = bigHouse(8, 400);
+    const ha = makeHa(house, 4000);
+    const scanner = new TopologyScanner(ha);
+    await scanner.scan();
+
+    const calls = (ha.renderTemplate as ReturnType<typeof vi.fn>).mock.calls.length;
+    expect(calls).toBeGreaterThan(2); // structure + more than one entity batch
+    expect(scanner.formatSection()).toContain("light.a7_e0");
+  });
+
+  it("keeps the rest of the house when a single area cannot be read", async () => {
+    // One area so large it cannot render alone. Losing it must not lose the home.
+    const house = bigHouse(3, 10);
+    house.floors[0].areas[1].entities = Array.from({ length: 5000 }, (_, j) => `light.huge_${j}`);
+    const ha = makeHa(house, 3000);
+    const scanner = new TopologyScanner(ha);
+    await scanner.scan();
+
+    const section = scanner.formatSection();
+    expect(section).toContain("light.a0_e0");
+    expect(section).toContain("light.a2_e0");
+  });
+
+  it("asks Home Assistant only for domains that could survive the filter", async () => {
+    const ha = makeHa();
+    await new TopologyScanner(ha).scan();
+    const entityCalls = (ha.renderTemplate as ReturnType<typeof vi.fn>).mock.calls
+      .map((c) => c[0] as string)
+      .filter((t) => !t.includes("floor_name"));
+    expect(entityCalls).toHaveLength(1);
+    expect(entityCalls[0]).toContain('"light"');
+    // The point of prefiltering: the config domains never cross the wire.
+    expect(entityCalls[0]).not.toContain('"update"');
+  });
+
+  it("prefilters by the exposed entities' domains, not by our defaults", async () => {
+    // Exposure wins over the domain heuristic, so a user who exposed a `number`
+    // entity must still get it — prefiltering must not quietly drop it.
+    const exposure = async () => new Set(["number.kitchen_transition"]);
+    const ha = makeHa();
+    const scanner = new TopologyScanner(ha, 30 * 60 * 1000, DEFAULT_LAYOUT_DOMAINS, exposure);
+    await scanner.scan();
+
+    const entityCall = (ha.renderTemplate as ReturnType<typeof vi.fn>).mock.calls
+      .map((c) => c[0] as string)
+      .find((t) => !t.includes("floor_name"))!;
+    expect(entityCall).toContain('"number"');
+    expect(scanner.formatSection()).toContain("number.kitchen_transition");
+  });
+});
+
+describe("TopologyScanner scan log", () => {
+  it("still reports how many entities the filter dropped", async () => {
+    // The filtering now happens inside Home Assistant, so the scanner never sees
+    // what it saved unless the structure call counts it. That number is the
+    // layout's running cost in every system prompt, so it must not go quiet.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    await new TopologyScanner(makeHa()).scan();
+    const line = log.mock.calls.map((c) => String(c[0])).find((l) => l.includes("[topology]"))!;
+    log.mockRestore();
+    expect(line).toContain("dropped");
+    expect(line).toMatch(/\d+ entities/);
   });
 });

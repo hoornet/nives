@@ -1,17 +1,27 @@
 import type { HomeAssistantClient } from "./client.js";
 
 /**
- * Single Jinja2 template that returns the full home layout as JSON in one call.
- * Uses HA template functions: floors(), floor_name(), floor_areas(),
- * area_name(), area_entities(), areas(), area_floor_id().
- * All available since HA 2024.4.
+ * The layout is fetched in two steps, because one call cannot be made to fit.
+ *
+ * Home Assistant caps a template render at 262 144 characters. The old single
+ * template asked for every area's full entity list, and `area_entities()`
+ * returns everything — config knobs, diagnostics, the lot — so a large house
+ * blows the cap and the whole layout is lost (home-mind#34: 9 059 entities,
+ * about 283 KB of JSON). Filtering by domain inside the template helps but does
+ * not fix it: the same house still renders around 186 KB, so a slightly bigger
+ * one fails again. Only a bounded number of areas per call is actually safe.
+ *
+ * Step one asks for the shape of the home — floors and areas, names and ids, and
+ * how many entities each area holds. Counts rather than ids, so it stays small
+ * however large the house; the count is what lets the scan log keep reporting
+ * how much the filter saved, which is a running cost worth seeing.
  */
-const LAYOUT_TEMPLATE = `
+const STRUCTURE_TEMPLATE = `
 {%- set ns = namespace(floors=[], assigned=[]) -%}
 {%- for fid in floors() -%}
   {%- set ans = namespace(areas=[]) -%}
   {%- for aid in floor_areas(fid) -%}
-    {%- set ans.areas = ans.areas + [{"id": aid, "name": area_name(aid), "entities": area_entities(aid) | list}] -%}
+    {%- set ans.areas = ans.areas + [{"id": aid, "name": area_name(aid), "total": area_entities(aid) | count}] -%}
     {%- set ns.assigned = ns.assigned + [aid] -%}
   {%- endfor -%}
   {%- set ns.floors = ns.floors + [{"id": fid, "name": floor_name(fid), "areas": ans.areas}] -%}
@@ -19,11 +29,48 @@ const LAYOUT_TEMPLATE = `
 {%- set orphans = namespace(areas=[]) -%}
 {%- for aid in areas() -%}
   {%- if aid not in ns.assigned -%}
-    {%- set orphans.areas = orphans.areas + [{"id": aid, "name": area_name(aid), "entities": area_entities(aid) | list}] -%}
+    {%- set orphans.areas = orphans.areas + [{"id": aid, "name": area_name(aid), "total": area_entities(aid) | count}] -%}
   {%- endif -%}
 {%- endfor -%}
 {{ {"floors": ns.floors, "unassigned": orphans.areas} | tojson }}
 `.trim();
+
+/**
+ * Step two asks for the entities of a given batch of areas.
+ *
+ * `domains` prefilters inside the template when we know which domains can
+ * survive the filter applied later in TypeScript. That is not a substitute for
+ * batching — it is what keeps the number of calls small on a normal house.
+ * Passing null prefilters nothing, which is right when the caller keeps every
+ * domain, and batching alone keeps that safe.
+ */
+function entitiesTemplate(areaIds: readonly string[], domains: readonly string[] | null): string {
+  const ids = JSON.stringify(areaIds);
+  const test = domains
+    ? `e.split('.')[0] in ${JSON.stringify([...domains])}`
+    : "true";
+  return `
+{%- set ns = namespace(rows=[]) -%}
+{%- for aid in ${ids} -%}
+  {%- set ents = namespace(list=[]) -%}
+  {%- for e in area_entities(aid) -%}
+    {%- if ${test} -%}{%- set ents.list = ents.list + [e] -%}{%- endif -%}
+  {%- endfor -%}
+  {%- set ns.rows = ns.rows + [{"id": aid, "entities": ents.list}] -%}
+{%- endfor -%}
+{{ ns.rows | tojson }}
+`.trim();
+}
+
+/** Home Assistant's wording when a render is too big to return. */
+const TOO_BIG = /exceeded maximum size/i;
+
+/** An area as the structure call returns it, before its entities are fetched. */
+interface AreaStub {
+  id: string;
+  name: string;
+  total?: number;
+}
 
 /**
  * Domains worth putting in front of the model by default: everything it can
@@ -135,6 +182,93 @@ export class TopologyScanner {
     return "filtered by domain";
   }
 
+  /**
+   * The domains worth asking Home Assistant for.
+   *
+   * A superset of what `keep()` will accept, never a subset — prefiltering must
+   * not drop something the exact filter would have kept. When the user has
+   * exposed entities to Assist those win, so the prefilter becomes the domains
+   * present in that list rather than our own default.
+   */
+  private prefilterDomains(): readonly string[] | null {
+    if (this.exposed) {
+      return [...new Set([...this.exposed].map((e) => e.slice(0, e.indexOf("."))))];
+    }
+    return this.domains === null ? null : [...this.domains];
+  }
+
+  /**
+   * Entities for a batch of areas, halving the batch whenever the render comes
+   * back too big.
+   *
+   * Halving rather than guessing a fixed size: how many entities an area holds
+   * is unknowable from here, and a house that fails at sixteen areas may be
+   * fine at eight. A single area that still cannot render is skipped with a
+   * warning rather than losing the whole layout, which is what happened before.
+   */
+  private async fetchEntities(
+    areaIds: string[],
+    domains: readonly string[] | null
+  ): Promise<Map<string, string[]>> {
+    const out = new Map<string, string[]>();
+    const queue: string[][] = areaIds.length > 0 ? [areaIds] : [];
+
+    while (queue.length > 0) {
+      const batch = queue.shift() as string[];
+      try {
+        const raw = await this.ha.renderTemplate(entitiesTemplate(batch, domains));
+        const rows = JSON.parse(raw.trim()) as { id: string; entities: string[] }[];
+        for (const row of rows) out.set(row.id, row.entities);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!TOO_BIG.test(msg)) throw err;
+        if (batch.length === 1) {
+          console.warn(
+            `[topology] Area ${batch[0]} has too many entities to read in one call; ` +
+              `it will be missing from the layout`
+          );
+          out.set(batch[0], []);
+          continue;
+        }
+        const half = Math.ceil(batch.length / 2);
+        queue.unshift(batch.slice(0, half), batch.slice(half));
+      }
+    }
+    return out;
+  }
+
+  /** How many entities the home really has, before any filtering. */
+  private totalEntities = 0;
+
+  /** The whole layout, assembled from the structure call plus batched entities. */
+  private async fetchLayout(): Promise<LayoutData> {
+    const raw = await this.ha.renderTemplate(STRUCTURE_TEMPLATE);
+    const structure = JSON.parse(raw.trim()) as {
+      floors: { id: string; name: string; areas: AreaStub[] }[];
+      unassigned: AreaStub[];
+    };
+    this.totalEntities = [
+      ...structure.floors.flatMap((f) => f.areas),
+      ...structure.unassigned,
+    ].reduce((n, a) => n + (a.total ?? 0), 0);
+
+    const areaIds = [
+      ...structure.floors.flatMap((f) => f.areas.map((a) => a.id)),
+      ...structure.unassigned.map((a) => a.id),
+    ];
+    const entities = await this.fetchEntities(areaIds, this.prefilterDomains());
+    const fill = (a: AreaStub) => ({
+      id: a.id,
+      name: a.name,
+      entities: entities.get(a.id) ?? [],
+    });
+
+    return {
+      floors: structure.floors.map((f) => ({ ...f, areas: f.areas.map(fill) })),
+      unassigned: structure.unassigned.map(fill),
+    };
+  }
+
   async scan(): Promise<void> {
     try {
       // Refreshed per scan: the user can expose an entity at any time, and a
@@ -146,14 +280,14 @@ export class TopologyScanner {
         this.exposed = exposed && exposed.size > 0 ? exposed : null;
       }
 
-      const raw = await this.ha.renderTemplate(LAYOUT_TEMPLATE);
-      const data = JSON.parse(raw.trim()) as LayoutData;
+      const data = await this.fetchLayout();
       this.layoutText = this.buildLayout(data);
       this.lastScanTime = Date.now();
 
       const floorCount = data.floors.length;
       const areas = [...data.floors.flatMap((f) => f.areas), ...data.unassigned];
-      const total = areas.reduce((n, a) => n + a.entities.length, 0);
+      // Counted in the structure call: what the house holds before prefiltering.
+      const total = this.totalEntities;
       const kept = areas.reduce((n, a) => n + a.entities.filter((e) => this.keep(e)).length, 0);
       // The layout ships in every system prompt, so its size is a running cost.
       const dropped = kept === total ? "" : ` (${total - kept} dropped, ${this.filterName()})`;
