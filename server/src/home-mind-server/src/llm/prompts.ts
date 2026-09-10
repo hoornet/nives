@@ -377,8 +377,10 @@ export function spokenVoicePointer(gender?: "female" | "male"): string {
     `enot, zdaj je 163 enot."\n` +
     `- Write whole sentences, never labelled fragments: "V spalnici je 19 stopinj Celzija, ` +
     `vlažnost pa je 60 odstotkov." NEVER "Spalnica: 19 °C, 60 % vlage."\n` +
-    `- Digits themselves are fine and PREFERRED for the value: write 163, not the number in ` +
-    `words. Only the units and initialisms around them become words.\n` +
+    `- Write numbers as DIGITS, exactly as you were given them: "156 enot", "8,6 mikrograma". ` +
+    `NEVER spell a number out in words. Getting a Slovene numeral wrong changes the reading ` +
+    `itself — the ones come before the tens, so one syllable turns 87 into 88 — and a wrong ` +
+    `value spoken confidently is far worse than an imperfect ending.\n` +
     `- ALWAYS refer to yourself using ${gender} forms in every language that inflects words ` +
     `for the speaker's own gender (Slovene, Croatian, Serbian, Czech, Slovak, Polish, ` +
     `Russian, Ukrainian, Hebrew, Arabic and others). In Slovene this means ${forms}, NEVER ` +

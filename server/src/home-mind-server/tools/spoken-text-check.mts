@@ -66,13 +66,74 @@ async function reply(system: string, q: string, data: unknown) {
 const system = buildSystemPromptText([], true, undefined, undefined, undefined, "sl", "female");
 const results = await Promise.all(CASES.map((c) => reply(system, c.q, c.data)));
 
+/**
+ * Spelling a number out is what fixes its ending, but it is also how a number gets
+ * silently CHANGED — Slovene puts the ones first, so "šestinosemdeset" is 86 and
+ * "oseminšestdeset" is 68, one syllable apart. A wrong ending merely sounds wrong; a
+ * wrong value is a lie told confidently. This speaks each reply and transcribes it back:
+ * the transcriber renders spoken number words as digits, so every value from the payload
+ * has to reappear. It cannot judge an ending, which is what ears are for.
+ */
+async function spokenValues(text: string): Promise<string> {
+  const a = await fetch("https://openrouter.ai/api/v1/audio/speech", {
+    method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "microsoft/mai-voice-2", input: text,
+      voice: "sl-SI-PetraNeural", response_format: "mp3" }),
+  });
+  const form = new FormData();
+  form.append("file", new Blob([await a.arrayBuffer()], { type: "audio/mpeg" }), "s.mp3");
+  form.append("model", "microsoft/mai-transcribe-2");
+  form.append("language", "sl");
+  const t = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
+    method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form,
+  });
+  return ((await t.json()).text ?? "").replace(/\s+/g, " ").trim();
+}
+
+// Every number in the payload, as the transcriber would write it (Slovene decimal comma).
+function payloadNumbers(data: Record<string, unknown>): string[] {
+  return Object.values(data)
+    .filter((v): v is number => typeof v === "number")
+    .map((n) => String(n).replace(".", ","));
+}
+
+/**
+ * Numbers heard back that we never supplied.
+ *
+ * Not "every value must be spoken" — voice replies are told to be brief and drop values on
+ * purpose, and an earlier version of this check failed the model for obeying that. The
+ * property that actually matters is the opposite direction: a number that reaches the
+ * listener must be one we were given. That is what catches 86 spoken as 68.
+ *
+ * Bare years, counts and ranges the model adds itself ("od največ 255") are not payload
+ * values, so only numbers that look like readings are compared: anything also present in
+ * the reply text as digits is ignored, since digits are read verbatim and cannot drift.
+ */
+function invented(heard: string, said: string, data: Record<string, unknown>): string[] {
+  const allowed = new Set(payloadNumbers(data).flatMap((n) => [n, n.replace(/^-/, "")]));
+  const literal = new Set((said.match(/\d[\d.,]*/g) ?? []).map((n) => n.replace(/[.,]$/, "")));
+  // Digits inside an initialism are part of its name, not a reading: "PM2,5" spoken as
+  // "Pe em dve celi pet" comes back as "PM2,5" and would otherwise look like a stray 2 and 2,5.
+  const withoutNames = heard.replace(/\b[A-Za-zČŠŽčšž]{1,4}\s?\d[\d.,]*/g, " ");
+  return (withoutNames.match(/\d[\d.,]*/g) ?? [])
+    .map((n) => n.replace(/[.,]$/, ""))
+    // "en milivat" and similar unit names carry their own 1; it is not a reading.
+    .filter((n) => n !== "1")
+    .filter((n) => !allowed.has(n) && !literal.has(n));
+}
+
 let failed = 0;
-results.forEach((out, i) => {
+for (const [i, out] of results.entries()) {
   const hits = VIOLATIONS.filter(([re]) => re.test(out)).map(([, n]) => n);
-  if (hits.length) failed++;
-  console.log(`${hits.length ? "FAIL" : "ok  "}  ${CASES[i].q}`);
+  const heard = await spokenValues(out);
+  const wrong = invented(heard, out, CASES[i].data);
+  const bad = hits.length > 0 || wrong.length > 0;
+  if (bad) failed++;
+  console.log(`${bad ? "FAIL" : "ok  "}  ${CASES[i].q}`);
   if (hits.length) console.log(`      ${hits.join("; ")}`);
-  console.log(`      ${out.slice(0, 190)}`);
-});
+  if (wrong.length) console.log(`      spoke value(s) we never gave it: ${wrong.join(", ")}`);
+  console.log(`      said : ${out.slice(0, 170)}`);
+  if (wrong.length) console.log(`      heard: ${heard.slice(0, 170)}`);
+}
 console.log(`\n${CASES.length - failed}/${CASES.length} clean`);
 process.exit(failed ? 1 : 0);

@@ -84,6 +84,16 @@ describe("spokenVoicePointer writing rules", () => {
     expect(p).toContain("sto šestinpetdeseti");
   });
 
+  it("keeps numbers as digits, because spelling them out corrupts the value", () => {
+    // Measured, not assumed: asked to write numerals as words, the model rendered 87 as
+    // "oseminosemdeset", which is 88. Slovene puts the ones first, so one syllable changes
+    // the reading. Words fix the grammatical ending, but a sensor value spoken wrongly is
+    // a different class of failure from a clumsy one — see the number normaliser for how
+    // the ending gets fixed without asking the model to count.
+    expect(p).toMatch(/NEVER spell a number out in words/);
+    expect(p).toMatch(/87 into 88/);
+  });
+
   it("keeps numerals away from prepositions", () => {
     // "na 163 enot" was spoken "na sto triinšestdesetih enot" — the voice inflects the
     // number for a case the sentence never asked for. Restructuring fixed it; spelling the
