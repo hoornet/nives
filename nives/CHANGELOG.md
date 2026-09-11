@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.2
+
+- **Security fix.** A crafted request could tie Nives's server up completely and stop her answering anything, using nothing but a malformed upload field name. The upload endpoint now rejects those, and the underlying library is updated. Nives had the updated library already, which is exactly why this needed doing: the update alone does not close it unless the limit is also set. Worth updating if your Home Assistant is reachable from outside your network. Bundles server 0.15.15.
+
 ## 2.6.1
 
 - **Large homes get their rooms back.** If you have a few thousand entities, Nives could not read your home's layout at all — the log said `Template output exceeded maximum size of 262144 characters` — so she did not know which room anything was in. She now reads the layout in smaller pieces, and asks Home Assistant only for the kinds of entity she actually uses, so it works however large your home is. Bundles server 0.15.14.
