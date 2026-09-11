@@ -15,14 +15,14 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.122.0",
+    "@anthropic-ai/sdk": "^0.124.0",
     "better-sqlite3": "^13.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "multer": "^2.3.0",
-    "openai": "^7.8.0",
-    "undici": "^8.10.1",
+    "openai": "^7.10.0",
+    "undici": "^8.10.2",
     "uuid": "^14.0.2",
     "zod": "^4.5.4"
   },
