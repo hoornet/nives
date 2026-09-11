@@ -7,7 +7,29 @@ import type { IConversationStore } from "../memory/types.js";
 import type { ISttService } from "../stt/stt-service.js";
 import type { ITtsService } from "../tts/tts-service.js";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+/**
+ * Limits for the one multipart endpoint this server has (`POST /api/stt`).
+ *
+ * `fieldArrayIndexLimit` is the fix for GHSA-535w-7cp7-47q4, and it is not
+ * optional: multer defaults it to Infinity and only enforces it when the key is
+ * actually present, so being on 2.3.0 without it changes nothing. This server
+ * was already on 2.3.0 and therefore raised no Dependabot alert at all, while
+ * being exactly as exposed as one still on 2.2.0.
+ *
+ * A field name like `items[4294967294]` otherwise makes append-field allocate a
+ * maximum-length sparse array, and a second field on the same base then walks
+ * its whole length — one request, and the process stops answering anything.
+ *
+ * Zero, because this endpoint takes `audio` and `language` and nothing else.
+ * No field name we send contains a bracket, so any index at all is an attack
+ * rather than a caller we would break.
+ */
+export const UPLOAD_LIMITS = {
+  fileSize: 25 * 1024 * 1024,
+  fieldArrayIndexLimit: 0,
+} as const;
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { ...UPLOAD_LIMITS } });
 
 // Request validation schemas
 export const ChatRequestSchema = z.object({
