@@ -190,7 +190,7 @@ Optional bearer token auth via `API_TOKEN` env var. When set, all endpoints exce
 
 **The HA integration is not installed via HACS.** It ships inside this repo at `nives/rootfs/opt/nives/` and the `install-integration` s6 oneshot copies it into `/config/custom_components/nives/` on startup, version-gated against `manifest.json`. Users never touch HACS. (The old `home-mind-hacs` repo belongs to the OSS sister project and is archived under `Legacy/` — don't reference it here.)
 
-**Standalone dev only:** the `docker-compose.yml` in this directory runs `shodh` (port 3030) and `server` (port 3100) as two services for working on the server outside HA. That path uses the `varunshodh/shodh-memory:latest` image via a thin wrapper (`docker/shodh/Dockerfile`) that fixes volume permissions, and `deploy.sh` auto-generates `SHODH_API_KEY`. It is not how the add-on runs.
+**Standalone dev only:** the `docker-compose.yml` in this directory runs `shodh` (port 3030) and `server` (port 3100) as two services for working on the server outside HA. That path uses the `varunshodh/shodh-memory` image, pinned by tag and digest, via a thin wrapper (`docker/shodh/Dockerfile`) that fixes volume permissions, and `deploy.sh` auto-generates `SHODH_API_KEY`. It is not how the add-on runs.
 
 ## Known Limitations
 
