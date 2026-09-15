@@ -4,6 +4,8 @@ AI assistant with cognitive memory for Home Assistant. Talk to your smart home n
 
 > _Previously known as **HomeMind PRO**. See the [v2.0.0 changelog](CHANGELOG.md) for migration notes._
 
+Nives is in early access. It's a convenience assistant for everyday things — asking about your home, and changing it when you ask. Treat it as that rather than as something to depend on.
+
 ## Quick Start
 
 1. Install this add-on
