@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.3
+
+- **Security housekeeping.** A library behind the add-on's web server had a critical advisory raised against it, and it is now updated. Nives was not exposed to it: the flaw only shows up when a server is configured to trust a proxy using one particular way of writing an address range, and Nives never sets that at all. The new version refuses that notation outright, so it stays closed if the setting is ever added later. Bundles server 0.15.16.
+- The libraries Nives uses to reach the model providers are updated, so newly released models and endpoints keep working.
+- The documentation now says plainly that Nives is in early access.
+
 ## 2.6.2
 
 - **Security fix.** A crafted request could tie Nives's server up completely and stop her answering anything, using nothing but a malformed upload field name. The upload endpoint now rejects those, and the underlying library is updated. Nives had the updated library already, which is exactly why this needed doing: the update alone does not close it unless the limit is also set. Worth updating if your Home Assistant is reachable from outside your network. Bundles server 0.15.15.
