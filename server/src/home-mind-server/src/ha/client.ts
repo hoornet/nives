@@ -56,6 +56,20 @@ export interface ServiceCallWithResponse {
   service_response: unknown;
 }
 
+let lastAutomationId = 0;
+
+/**
+ * Config id for a new automation: a millisecond timestamp, like the ids HA's
+ * own editor writes, but never repeated within this process. The model's tool
+ * calls run in parallel, so two creates from one step can land in the same
+ * millisecond; with a bare Date.now() they got the same id, HA kept only the
+ * second write, and both calls still reported success.
+ */
+function nextAutomationId(): string {
+  lastAutomationId = Math.max(Date.now(), lastAutomationId + 1);
+  return lastAutomationId.toString();
+}
+
 export class HomeAssistantClient {
   private baseUrl: string;
   private token: string;
@@ -409,7 +423,7 @@ export class HomeAssistantClient {
    * collisions). Throws a friendly error if the HA `config` integration is absent.
    */
   async createAutomation(config: AutomationConfig): Promise<CreatedAutomation> {
-    const id = Date.now().toString();
+    const id = nextAutomationId();
     const body = {
       id,
       alias: config.alias,

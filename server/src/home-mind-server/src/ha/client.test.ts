@@ -185,6 +185,38 @@ describe("HomeAssistantClient.createAutomation", () => {
       calls.some((c) => /\/api\/config\/automation\/config\//.test(c.url) && c.method === "POST")
     ).toBe(false);
   });
+
+  // Tool calls from one model step run in parallel. Two creates in the same
+  // millisecond used to share a Date.now() id, so the second write replaced
+  // the first in HA while both calls reported success.
+  it("gives each of several parallel creates its own config id", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1790270789751);
+    try {
+      const ha = new HomeAssistantClient(baseConfig);
+      const results = await Promise.all([
+        ha.createAutomation({
+          alias: "Nives: Bedroom cooling on",
+          trigger: { platform: "time", at: "20:00:00" },
+          action: { service: "light.turn_on" },
+        }),
+        ha.createAutomation({
+          alias: "Nives: Bedroom cooling off",
+          trigger: { platform: "time", at: "22:00:00" },
+          action: { service: "light.turn_off" },
+        }),
+      ]);
+
+      const postedIds = calls
+        .filter((c) => c.method === "POST")
+        .map((c) => c.url.match(/\/api\/config\/automation\/config\/(\d+)$/)?.[1])
+        .filter((id): id is string => id !== undefined);
+      expect(postedIds).toHaveLength(2);
+      expect(new Set(postedIds).size).toBe(2);
+      expect(results[0].id).not.toBe(results[1].id);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
 });
 
 describe("HomeAssistantClient.updateAutomation", () => {
