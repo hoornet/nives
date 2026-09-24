@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.4
+
+- **Asking for two automations at once now gets you both.** A request like "cool the bedroom above 22 °C and switch it off again at 20" needs a pair of automations, and some models create the two at the same instant. When that happened, Home Assistant could keep only one of them while Nives told you both were in place. Each new automation now gets its own identity however quickly they arrive, so both are saved. If you set up a pair like this before, it is worth opening Settings → Automations to check both are there. Bundles server 0.15.17.
+
 ## 2.6.3
 
 - **Security housekeeping.** A library behind the add-on's web server had a critical advisory raised against it, and it is now updated. Nives was not exposed to it: the flaw only shows up when a server is configured to trust a proxy using one particular way of writing an address range, and Nives never sets that at all. The new version refuses that notation outright, so it stays closed if the setting is ever added later. Bundles server 0.15.16.
