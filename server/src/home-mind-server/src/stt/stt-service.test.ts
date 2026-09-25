@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import OpenAI from "openai";
-import { OpenAISttService, STT_RETRY_DELAYS_MS, wavDurationSeconds } from "./stt-service.js";
+import { OpenAISttService, STT_MAX_TOTAL_WAIT_MS, STT_RETRY_DELAYS_MS, wavDurationSeconds } from "./stt-service.js";
 
 /** A 16 kHz mono 16-bit WAV holding `seconds` of silence. */
 function wav(seconds: number): Buffer {
@@ -90,6 +90,56 @@ describe("OpenAISttService", () => {
     expect(lines.at(-1)).toContain("NOTHING (empty transcript)");
   });
 
+  it("waits as long as the provider asks, within the cap", async () => {
+    const hinted = OpenAI.APIError.generate(
+      429,
+      { message: "slow down" },
+      undefined,
+      new Headers({ "retry-after": "3" })
+    );
+    const create = vi.fn().mockRejectedValueOnce(hinted).mockResolvedValueOnce({ text: "ok" });
+    const { stt, sleeps } = service(create);
+
+    await stt.transcribe(wav(1), "audio/wav", "speech.wav");
+    expect(sleeps).toEqual([3000]);
+  });
+
+  it("stops retrying once the total wait would exceed its budget", async () => {
+    const hinted = () =>
+      OpenAI.APIError.generate(429, { message: "busy" }, undefined, new Headers({ "retry-after-ms": "7000" }));
+    const create = vi.fn().mockImplementation(async () => {
+      throw hinted();
+    });
+    const { stt, sleeps, lines } = service(create);
+
+    await expect(stt.transcribe(wav(1), "audio/wav", "speech.wav")).rejects.toThrow();
+    // 7 s fits, a second 7 s would make 14 s > 12 s.
+    expect(sleeps).toEqual([7000]);
+    expect(sleeps.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(STT_MAX_TOTAL_WAIT_MS);
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(lines.at(-1)).toMatch(/FAILED after 2 attempt/);
+  });
+
+  it("retries server errors and dropped connections", async () => {
+    const create = vi
+      .fn()
+      .mockRejectedValueOnce(OpenAI.APIError.generate(503, { message: "unavailable" }, undefined, new Headers()))
+      .mockRejectedValueOnce(new OpenAI.APIConnectionError({ message: "socket hang up" }))
+      .mockResolvedValueOnce({ text: "ok" });
+    const { stt } = service(create);
+
+    expect(await stt.transcribe(wav(1), "audio/wav", "speech.wav")).toBe("ok");
+    expect(create).toHaveBeenCalledTimes(3);
+  });
+
+  it("treats a whitespace-only transcript as nothing heard", async () => {
+    const create = vi.fn().mockResolvedValue({ text: "  \n " });
+    const { stt, lines } = service(create);
+
+    expect(await stt.transcribe(wav(1), "audio/wav", "speech.wav")).toBe("");
+    expect(lines.at(-1)).toContain("NOTHING (empty transcript)");
+  });
+
   it("logs only the length of the text when not at debug level", async () => {
     const create = vi.fn().mockResolvedValue({ text: "Koliko je ura?" });
     const { stt, lines } = service(create, false);
@@ -103,6 +153,15 @@ describe("OpenAISttService", () => {
 describe("wavDurationSeconds", () => {
   it("reads the duration from a PCM WAV header", () => {
     expect(wavDurationSeconds(wav(3))).toBeCloseTo(3, 5);
+  });
+
+  it("finds the format chunk even when another chunk comes first", () => {
+    const plain = wav(2);
+    const list = Buffer.alloc(8 + 10);
+    list.write("LIST", 0, "ascii");
+    list.writeUInt32LE(10, 4);
+    const reordered = Buffer.concat([plain.subarray(0, 12), list, plain.subarray(12)]);
+    expect(wavDurationSeconds(reordered)).toBeCloseTo(2, 5);
   });
 
   it("returns undefined for anything that is not a WAV", () => {
