@@ -60,6 +60,10 @@ Home Assistant can already read replies aloud, but the free local voices are
 thin outside English, and in some languages the only one available sounds like a
 news bulletin read by a machine.
 
+For English and most other languages, leave **Voice** on `off`: Nives then
+answers in the voice your Assist pipeline already uses, such as Piper or Home
+Assistant Cloud. The setting is for languages where Nives has a better voice.
+
 Pick a **Voice** and restart the add-on. Within a couple of minutes Nives
 appears as a **Text-to-speech** choice in your Assist pipeline (Settings → Voice
 assistants), speaking in a voice native to that language rather than a foreign
@@ -72,6 +76,7 @@ Two voices are available today, both Slovene:
 
 | Setting | Voice |
 |---|---|
+| `off` | Your Assist pipeline's own voice (the default) |
 | `slovene_female` | A woman's voice |
 | `slovene_male` | A man's voice |
 
