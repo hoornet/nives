@@ -454,7 +454,8 @@ export function createRouter(
       const text = await stt.transcribe(buffer, mimetype, originalname || "audio.webm", language);
       res.json({ text });
     } catch (error) {
-      console.error("STT error:", error);
+      // The service has already logged the attempts and the provider's answer;
+      // dumping the error object here only repeated it with every header.
       const message = error instanceof Error ? error.message : "Transcription failed";
       res.status(500).json({ error: message });
     }

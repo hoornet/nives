@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.7
+
+- **Transcription rides out a busy moment instead of failing.** When the transcription service was briefly overloaded, a spoken request could end in "speech-to-text failed" and you had to say it again. Nives now waits a few seconds and tries again, up to three more times, before giving up. You may notice a short pause on those occasions; the request goes through.
+- **Every transcription is recorded in the add-on log**: how long you spoke, which language was expected, how long it took, how many tries it needed, and what was heard (the words themselves appear when Log Level is set to debug). When voice does not do what you meant, the log now shows whether it heard you wrongly or heard nothing at all. Bundles server 0.15.19.
+
 ## 2.6.6
 
 - New Nives Cloud sign-ups are paused for now. The add-on's settings and documentation say so instead of pointing to a checkout. Keys you already have keep working exactly as before, top-ups included, and Bring Your Own Key is free and the way to start today.

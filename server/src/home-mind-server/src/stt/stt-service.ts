@@ -1,6 +1,6 @@
 /**
  * Speech-to-text service.
- * Currently only the OpenAI Whisper API is supported.
+ * Currently only the OpenAI-compatible transcriptions API is supported.
  * When STT_PROVIDER is not set (or "none"), the service is disabled
  * and the /api/stt endpoint returns 501.
  */
@@ -12,26 +12,153 @@ export interface ISttService {
   transcribe(audioBuffer: Buffer, mimeType: string, filename: string, language?: string): Promise<string>;
 }
 
-export class OpenAISttService implements ISttService {
-  private client: OpenAI;
-  private model: string;
+/**
+ * Waits before each retry of a transcription the provider turned away.
+ *
+ * The SDK's own retries were not enough: it tries twice more within about a
+ * second and a half, and on 2026-09-19 a spoken request failed with
+ * "Provider returned 429" after exactly that. A busy provider needs longer than
+ * that to clear, and the Home Assistant side waits 45 s for us, so a few
+ * seconds spent retrying costs far less than a failed request the user has to
+ * repeat. We retry the same model on purpose: for Slovene the alternatives
+ * transcribe too poorly to be worth falling back to.
+ */
+export const STT_RETRY_DELAYS_MS = [1000, 2500, 5000] as const;
 
-  constructor(apiKey: string, model: string, baseUrl?: string) {
-    this.client = new OpenAI({
-      apiKey,
-      ...(baseUrl ? { baseURL: baseUrl } : {}),
-    });
+/** Never wait longer than this on a provider's retry-after hint. */
+const MAX_RETRY_AFTER_MS = 8000;
+
+/**
+ * Total waiting across all retries. Each hint may be up to 8 s, and three of
+ * them plus four transcription requests could otherwise run into the 45 s the
+ * Home Assistant side allows. Past this budget we give up and say so, which
+ * leaves the user time to simply speak again.
+ */
+export const STT_MAX_TOTAL_WAIT_MS = 12000;
+
+/** Errors worth another attempt: rate limits, server-side failures, network trouble. */
+function isRetryable(error: unknown): boolean {
+  if (error instanceof OpenAI.APIConnectionError) return true; // includes timeouts
+  if (error instanceof OpenAI.APIError) {
+    const status = error.status;
+    return status === 408 || status === 429 || (typeof status === "number" && status >= 500);
+  }
+  return false;
+}
+
+function describeError(error: unknown): string {
+  if (error instanceof OpenAI.APIError) {
+    return `${error.status ?? "no status"} ${error.message}`;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** The provider's own retry hint, if it gave one we are willing to wait for. */
+function retryAfterMs(error: unknown): number | undefined {
+  if (!(error instanceof OpenAI.APIError) || !error.headers) return undefined;
+  const headers = error.headers as Headers;
+  const ms = Number(headers.get?.("retry-after-ms"));
+  if (Number.isFinite(ms) && ms > 0) return Math.min(ms, MAX_RETRY_AFTER_MS);
+  const seconds = Number(headers.get?.("retry-after"));
+  if (Number.isFinite(seconds) && seconds > 0) return Math.min(seconds * 1000, MAX_RETRY_AFTER_MS);
+  return undefined;
+}
+
+/** Seconds of audio in a PCM WAV, read from its header; undefined for anything else. */
+export function wavDurationSeconds(buffer: Buffer): number | undefined {
+  if (buffer.length < 44 || buffer.toString("ascii", 0, 4) !== "RIFF" || buffer.toString("ascii", 8, 12) !== "WAVE") {
+    return undefined;
+  }
+  // Walk the chunks rather than assuming a 44-byte header with `fmt ` first.
+  let byteRate: number | undefined;
+  let offset = 12;
+  while (offset + 8 <= buffer.length) {
+    const id = buffer.toString("ascii", offset, offset + 4);
+    const size = buffer.readUInt32LE(offset + 4);
+    if (id === "fmt " && offset + 20 <= buffer.length) byteRate = buffer.readUInt32LE(offset + 16);
+    if (id === "data") {
+      return byteRate ? Math.min(size, buffer.length - offset - 8) / byteRate : undefined;
+    }
+    offset += 8 + size + (size % 2);
+  }
+  return undefined;
+}
+
+type TranscriptionsClient = Pick<OpenAI, "audio">;
+
+export interface SttServiceOptions {
+  /** Log the recognised text itself, not only its length. */
+  logText?: boolean;
+  /** Injected in tests. */
+  client?: TranscriptionsClient;
+  sleep?: (ms: number) => Promise<void>;
+  log?: (line: string) => void;
+}
+
+export class OpenAISttService implements ISttService {
+  private client: TranscriptionsClient;
+  private model: string;
+  private logText: boolean;
+  private sleep: (ms: number) => Promise<void>;
+  private log: (line: string) => void;
+
+  constructor(apiKey: string, model: string, baseUrl?: string, options: SttServiceOptions = {}) {
+    // maxRetries 0: retries happen in transcribe(), where each one is logged
+    // and the waits are long enough to outlast a busy provider.
+    this.client =
+      options.client ??
+      new OpenAI({
+        apiKey,
+        maxRetries: 0,
+        ...(baseUrl ? { baseURL: baseUrl } : {}),
+      });
     this.model = model;
+    this.logText = options.logText ?? false;
+    this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.log = options.log ?? ((line) => console.log(line));
   }
 
   async transcribe(audioBuffer: Buffer, mimeType: string, filename: string, language?: string): Promise<string> {
-    const file = new File([audioBuffer], filename, { type: mimeType });
-    const result = await this.client.audio.transcriptions.create({
-      file,
-      model: this.model,
-      ...(language ? { language } : {}),
-    });
-    return result.text;
+    const started = Date.now();
+    const seconds = wavDurationSeconds(audioBuffer);
+    const audio =
+      `${seconds !== undefined ? `${seconds.toFixed(1)} s of audio` : "audio"} ` +
+      `(${mimeType || "unknown type"}, ${Math.round(audioBuffer.length / 1024)} KB), ` +
+      `language=${language ?? "auto"}, model=${this.model}`;
+
+    let waited = 0;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const file = new File([audioBuffer], filename, { type: mimeType });
+        const result = await this.client.audio.transcriptions.create({
+          file,
+          model: this.model,
+          ...(language ? { language } : {}),
+        });
+        // Whitespace-only counts as nothing heard, for the caller as well as the log.
+        const text = (result.text ?? "").trim();
+        const took = ((Date.now() - started) / 1000).toFixed(1);
+        const tries = attempt > 1 ? `, ${attempt} attempts` : "";
+        const heard = text
+          ? this.logText
+            ? `"${text}"`
+            : `${text.length} chars`
+          : "NOTHING (empty transcript)";
+        this.log(`[stt] ${audio} → ${took} s${tries}: ${heard}`);
+        return text;
+      } catch (error) {
+        const delay = STT_RETRY_DELAYS_MS[attempt - 1];
+        const wait = delay === undefined ? undefined : (retryAfterMs(error) ?? delay);
+        if (wait === undefined || !isRetryable(error) || waited + wait > STT_MAX_TOTAL_WAIT_MS) {
+          const took = ((Date.now() - started) / 1000).toFixed(1);
+          this.log(`[stt] FAILED after ${attempt} attempt(s), ${took} s: ${describeError(error)} — ${audio}`);
+          throw error;
+        }
+        this.log(`[stt] attempt ${attempt} failed (${describeError(error)}); retrying in ${(wait / 1000).toFixed(1)} s`);
+        waited += wait;
+        await this.sleep(wait);
+      }
+    }
   }
 }
 
@@ -42,5 +169,7 @@ export function createSttService(config: Config): ISttService | null {
   const apiKey = config.sttApiKey ?? config.openaiApiKey;
   if (!apiKey) return null;
 
-  return new OpenAISttService(apiKey, config.sttModel, config.sttBaseUrl ?? config.openaiBaseUrl);
+  return new OpenAISttService(apiKey, config.sttModel, config.sttBaseUrl ?? config.openaiBaseUrl, {
+    logText: config.logLevel === "debug",
+  });
 }
