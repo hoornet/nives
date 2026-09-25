@@ -34,16 +34,17 @@ Nives bundles two services in one add-on:
 
 ## Cloud Mode
 
-Use Nives Cloud, a managed AI service on a prepaid balance. Buy a ticket, use it until it runs out, top up when you like. No subscription, no API key management, no surprise bills.
+Use Nives Cloud, a managed AI service on a prepaid balance. No subscription, no API key management, no surprise bills.
 
-### Setup
+**New Cloud sign-ups are paused at the moment.** Existing keys keep working exactly as before, top-ups included. If you'd like to know when they reopen, write to hello@nives.house. In the meantime, [BYOK mode](#byok-mode-bring-your-own-key) below is free and is the way to run Nives today.
 
-1. Buy a ticket at [nives.house](https://nives.house) — €10, everything included
-2. Copy your **Nives API Key** from your dashboard
-3. In the add-on Configuration tab:
+### Setup (with an existing key)
+
+1. Copy your **Nives API Key** from your nives.house dashboard
+2. In the add-on Configuration tab:
    - Set **LLM Mode** to `cloud`
    - Paste your key into **Nives API Key**
-4. Save and start the add-on
+3. Save and start the add-on
 
 ### Cloud Configuration
 
