@@ -6,12 +6,13 @@ configuration:
   cloud:
     name: "Nives Cloud"
     description: >-
-      Settings for Nives Cloud mode. Get your API key at nives.house.
+      Settings for Nives Cloud mode. New sign-ups are paused for now; keys you
+      already have keep working, top-ups included.
     fields:
       api_key:
         name: Nives API Key
         description: >-
-          Your Nives API key from nives.house. Required when LLM Mode is "cloud".
+          Your Nives API key, from your nives.house dashboard. Required when LLM Mode is "cloud".
       transcription:
         name: Transcription (let Nives do the listening)
         description: >-

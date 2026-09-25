@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.6
+
+- New Nives Cloud sign-ups are paused for now. The add-on's settings and documentation say so instead of pointing to a checkout. Keys you already have keep working exactly as before, top-ups included, and Bring Your Own Key is free and the way to start today.
+- The libraries Nives uses to reach the model providers are updated, so newly released models and endpoints keep working. Bundles server 0.15.18.
+
 ## 2.6.5
 
 - **Every setting under Nives Cloud and Bring Your Own Key now has its proper name and explanation.** The Configuration tab was showing the bare internal names there, like `api_key` and `transcription`, with nothing underneath to say what they do. They now read "Nives API Key", "Transcription", "Provider" and so on, each with its description, including the note that turning on Transcription sends the audio of your spoken requests to be transcribed.
