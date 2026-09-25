@@ -1,5 +1,5 @@
 name: "Nives"
-version: "2.6.4"
+version: "2.6.5"
 slug: "nives"
 description: "AI assistant with cognitive memory for Home Assistant"
 url: "https://github.com/hoornet/nives"
@@ -39,15 +39,19 @@ options:
 schema:
   llm_mode: "list(cloud|byok)"
   cloud:
-    api_key: "str?"
+    # password: masked in the Configuration tab (eye icon to reveal), so a
+    # screenshot of the settings doesn't show the key. Still a plain string.
+    api_key: "password?"
     transcription: "bool?"
-    # The voice Nives speaks replies in, or "off" for no voice at all. Each
+    # The voice Nives speaks replies in, or "off" to leave speaking to whatever
+    # voice the user's Assist pipeline already has (Piper, HA Cloud...). Each
     # choice is a voice native to that language, so the list is short and grows
-    # only as languages are tested.
+    # only as languages are tested. HA shows list values raw and cannot relabel
+    # them, so the explanation lives in the translation's description.
     voice: "list(off|slovene_female|slovene_male)?"
   byok:
     provider: "list(anthropic|openai|openrouter|ollama)?"
-    api_key: "str?"
+    api_key: "password?"
     model: "str?"
     base_url: "str?"
   custom_prompt: "str?"
