@@ -39,7 +39,9 @@ options:
 schema:
   llm_mode: "list(cloud|byok)"
   cloud:
-    api_key: "str?"
+    # password: masked in the Configuration tab (eye icon to reveal), so a
+    # screenshot of the settings doesn't show the key. Still a plain string.
+    api_key: "password?"
     transcription: "bool?"
     # The voice Nives speaks replies in, or "off" to leave speaking to whatever
     # voice the user's Assist pipeline already has (Piper, HA Cloud...). Each
@@ -49,7 +51,7 @@ schema:
     voice: "list(off|slovene_female|slovene_male)?"
   byok:
     provider: "list(anthropic|openai|openrouter|ollama)?"
-    api_key: "str?"
+    api_key: "password?"
     model: "str?"
     base_url: "str?"
   custom_prompt: "str?"

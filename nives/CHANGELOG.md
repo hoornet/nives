@@ -3,6 +3,7 @@
 ## 2.6.5
 
 - **Every setting under Nives Cloud and Bring Your Own Key now has its proper name and explanation.** The Configuration tab was showing the bare internal names there, like `api_key` and `transcription`, with nothing underneath to say what they do. They now read "Nives API Key", "Transcription", "Provider" and so on, each with its description, including the note that turning on Transcription sends the audio of your spoken requests to be transcribed.
+- **API keys are hidden on the Configuration tab.** Both the Nives API Key and the key for your own provider now show as dots, with an eye icon to reveal them, so a screenshot of your settings no longer shows the key. Nothing changes for keys you have already saved.
 - **The Voice setting explains itself.** For English and most languages, leave it on "off": Nives then answers in the voice your Assist pipeline already uses, such as Piper or Home Assistant Cloud. Pick one of the voices only when Nives offers a better one for your language, which today means Slovene.
 
 ## 2.6.4
