@@ -52,7 +52,7 @@ Use Nives Cloud, a managed AI service on a prepaid balance. Buy a ticket, use it
 | LLM Mode | Set to `cloud` |
 | Nives API Key | Your key from nives.house |
 | Transcription | Off by default. Turn it on to let Nives do the listening too — see below |
-| Voice | Off by default. Pick a voice and Nives reads her replies aloud — see below |
+| Voice | Leave it on `off` to keep the voice your Assist pipeline already uses, which is right for English and most languages. Pick a voice only when Nives offers a better one for your language (today: Slovene) — see below |
 
 ### Let Nives do the speaking (optional)
 
@@ -197,7 +197,6 @@ curl -H "Authorization: Bearer <token>" http://<addon-host>:3100/api/chat ...
 
 | Option | Description |
 |--------|-------------|
-| Voice | The voice Nives speaks her replies in, or `off` for no voice. Each choice is a voice native to that language; it applies once the add-on restarts. |
 | Custom Prompt | The assistant's personality — what you write replaces the default persona outright (e.g. "You are HAL 9000, the calm and precise computer from 2001"). This is the one place to set it; it applies once the add-on restarts. Leave empty for the default. |
 | Maximum Answer Length | How much room one written answer gets, in tokens. Leave it empty and Nives chooses. Raise it if long answers stop before they finish, which is most likely when you ask about several sensors at once or over a long period. Longer answers cost a little more. Spoken answers are not affected. |
 | Room map from exposed entities | On by default. Nives keeps a room map of your home, and it lists the entities you have exposed to Assist (Settings, Voice assistants, Expose), the same set Home Assistant's own assistant sees. Turn it off to list entities by type instead. Either way Nives can still find and control any entity by name; this only decides which ones are in the map. |

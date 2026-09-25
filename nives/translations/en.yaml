@@ -7,20 +7,32 @@ configuration:
     name: "Nives Cloud"
     description: >-
       Settings for Nives Cloud mode. Get your API key at nives.house.
-    api_key:
-      name: Nives API Key
-      description: >-
-        Your Nives API key from nives.house. Required when LLM Mode is "cloud".
-    transcription:
-      name: Transcription (let Nives do the listening)
-      description: >-
-        Off by default. When on, Nives offers itself as a Speech-to-text choice
-        in your Assist pipeline and transcribes what you say, paid from your
-        Nives balance — better with names and with languages other than English
-        than engines running on your own box. Note this sends the audio of your
-        spoken requests to be transcribed; with it off, only your written
-        request goes out. Cloud mode only. After changing this, restart the
-        add-on; Nives updates Home Assistant on its own within a few minutes.
+    fields:
+      api_key:
+        name: Nives API Key
+        description: >-
+          Your Nives API key from nives.house. Required when LLM Mode is "cloud".
+      transcription:
+        name: Transcription (let Nives do the listening)
+        description: >-
+          Off by default. When on, Nives offers itself as a Speech-to-text choice
+          in your Assist pipeline and transcribes what you say, paid from your
+          Nives balance — better with names and with languages other than English
+          than engines running on your own box. Note this sends the audio of your
+          spoken requests to be transcribed; with it off, only your written
+          request goes out. Cloud mode only. After changing this, restart the
+          add-on; Nives updates Home Assistant on its own within a few minutes.
+      voice:
+        name: Voice (only for languages your assistant can't already speak well)
+        description: >-
+          Leave this on "off" to keep the voice your Assist pipeline already uses,
+          such as Piper or Home Assistant Cloud. That is the right choice for
+          English and most languages. Choose a voice here only when Nives offers
+          one for your language that sounds better than what you have. Today that
+          is Slovene, with a female and a male voice. Once chosen and the add-on
+          restarted, Nives appears as a Text-to-speech choice in your Assist
+          pipeline (Settings, Voice assistants). Speaking is paid from your Nives
+          balance. Cloud mode only.
   byok:
     name: "Bring Your Own Key (BYOK)"
     description: >-
@@ -28,24 +40,25 @@ configuration:
       calling, which is how Nives controls your home. Going deep on local or
       custom models? The open-source home-mind project is built around that, and
       it is the same engine. Only used when LLM Mode is "byok".
-    provider:
-      name: Provider
-      description: >-
-        Which LLM provider to use. OpenRouter gives access to many models with a single key.
-    api_key:
-      name: API Key
-      description: >-
-        Your API key for the selected provider.
-    model:
-      name: Model
-      description: >-
-        Model ID to use. Examples: anthropic/claude-haiku-4.5 (OpenRouter),
-        claude-haiku-4-5-20251001 (Anthropic), gpt-4o-mini (OpenAI). Leave empty for provider default.
-    base_url:
-      name: API Base URL
-      description: >-
-        Custom API endpoint. Required for Ollama (e.g. http://homeassistant:11434/v1).
-        Leave empty for cloud providers.
+    fields:
+      provider:
+        name: Provider
+        description: >-
+          Which LLM provider to use. OpenRouter gives access to many models with a single key.
+      api_key:
+        name: API Key
+        description: >-
+          Your API key for the selected provider.
+      model:
+        name: Model
+        description: >-
+          Model ID to use. Examples: anthropic/claude-haiku-4.5 (OpenRouter),
+          claude-haiku-4-5-20251001 (Anthropic), gpt-4o-mini (OpenAI). Leave empty for provider default.
+      base_url:
+        name: API Base URL
+        description: >-
+          Custom API endpoint. Required for Ollama (e.g. http://homeassistant:11434/v1).
+          Leave empty for cloud providers.
   custom_prompt:
     name: Custom Prompt
     description: >-
