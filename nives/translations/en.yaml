@@ -32,8 +32,9 @@ configuration:
           one for your language that sounds better than what you have. Today that
           is Slovene, with a female and a male voice. Once chosen and the add-on
           restarted, Nives appears as a Text-to-speech choice in your Assist
-          pipeline (Settings, Voice assistants). Speaking is paid from your Nives
-          balance. Cloud mode only.
+          pipeline (Settings, Voice assistants), provided that assistant's own
+          Language, at the top of its settings, matches the voice. Speaking is
+          paid from your Nives balance. Cloud mode only.
   byok:
     name: "Bring Your Own Key (BYOK)"
     description: >-
