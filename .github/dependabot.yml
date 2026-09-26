@@ -23,6 +23,12 @@ updates:
       # defs don't drift ahead of the runtime (e.g. 24) and surface APIs we lack.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # undici 8.11.0 broke Node's own fetch once imported: over HTTP/2 it
+      # returned gzip bodies undecoded (empty transcripts, a dead balance check
+      # in 2.6.6-2.6.7). Pinned to 8.10.2; src/fetch-decompression.test.ts guards
+      # it. Skip 8.11.x so a later fixed release can still be proposed and tested.
+      - dependency-name: "undici"
+        versions: ["8.11.x"]
 
   # GitHub Actions used by the multi-arch build / CI / GHCR publish workflows.
   - package-ecosystem: "github-actions"
