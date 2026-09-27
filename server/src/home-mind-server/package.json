@@ -1,6 +1,6 @@
 {
   "name": "@home-mind/server",
-  "version": "0.15.21",
+  "version": "0.15.22",
   "description": "Home Mind API server - AI assistant with cognitive memory for Home Assistant",
   "type": "module",
   "main": "dist/index.js",
@@ -15,13 +15,13 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.127.0",
+    "@anthropic-ai/sdk": "^0.128.0",
     "better-sqlite3": "^13.0.3",
     "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
+    "dotenv": "^18.0.3",
     "express": "^5.2.1",
     "multer": "^2.4.0",
-    "openai": "^7.21.0",
+    "openai": "^7.23.0",
     "undici": "8.10.2",
     "uuid": "^14.0.2",
     "zod": "^4.5.4"
@@ -33,10 +33,10 @@
     "@types/multer": "^2.2.0",
     "@types/node": "^22.20.4",
     "@types/uuid": "^11.0.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^4.0.18"
+    "vitest": "^5.0.1"
   },
   "engines": {
     "node": ">=18.0.0"
