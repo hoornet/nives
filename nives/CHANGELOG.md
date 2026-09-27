@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.10
+
+- The libraries Nives uses to reach the model providers are updated, so newly released models and endpoints keep working. Before release, speech-to-text and chat were each checked end to end with real requests, not only with the automated tests. Bundles server 0.15.22.
+
 ## 2.6.9
 
 - **When speech-to-text mangles a command, Nives asks instead of guessing.** Short spoken commands sometimes arrive garbled, "prižgi luči v kuhinji" turning into "prižgelo ci je v kuhinji". Nives used to take those literally and answer as if you had told her something ("a light came on in the kitchen"), switching nothing. Now she recognises the command it most likely was and asks one short question, "Naj prižgem luči v kuhinji?", and acts on your "da". Clear commands still happen straight away, without a question.
