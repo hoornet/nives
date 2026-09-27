@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.9
+
+- **When speech-to-text mangles a command, Nives asks instead of guessing.** Short spoken commands sometimes arrive garbled, "prižgi luči v kuhinji" turning into "prižgelo ci je v kuhinji". Nives used to take those literally and answer as if you had told her something ("a light came on in the kitchen"), switching nothing. Now she recognises the command it most likely was and asks one short question, "Naj prižgem luči v kuhinji?", and acts on your "da". Clear commands still happen straight away, without a question.
+- **Nives no longer plays along with devices you don't have.** Asked for "neonske luči" in a kitchen with no neon lights, she says so and offers the lights you do have, instead of switching something else on and calling it by the name you used. Bundles server 0.15.21.
+
 ## 2.6.8
 
 - **Speech-to-text works again.** Since 2.6.6, every spoken request came back as if nothing had been said ("No text recognized" or "speech-to-text failed"), and the low-balance heads-up could not check your balance. An updated library had changed how the add-on reads compressed replies from the services it talks to. That library is back on the version that works, and a new check now catches this kind of change before it can ship. Please update if you use Nives by voice. Bundles server 0.15.20.
