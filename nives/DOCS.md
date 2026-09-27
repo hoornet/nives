@@ -93,7 +93,9 @@ ones are free.
 
 > **A voice speaks one language.** Nives offers herself as a speaking choice
 > only for the language of the voice you picked, so a Slovene voice will not be
-> offered to an English pipeline. If you run Assist in more than one language,
+> offered to an English pipeline. What counts is the assistant's own
+> **Language**, at the top of its settings, not its speech-to-text language: an
+> assistant first created in English keeps English there until you change it. If you run Assist in more than one language,
 > keep Home Assistant's own text-to-speech for the others.
 
 ### Let Nives do the listening (optional)

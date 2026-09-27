@@ -1,8 +1,13 @@
 # Changelog
 
+## 2.6.8
+
+- **Speech-to-text works again.** Since 2.6.6, every spoken request came back as if nothing had been said ("No text recognized" or "speech-to-text failed"), and the low-balance heads-up could not check your balance. An updated library had changed how the add-on reads compressed replies from the services it talks to. That library is back on the version that works, and a new check now catches this kind of change before it can ship. Please update if you use Nives by voice. Bundles server 0.15.20.
+- The Voice setting and the documentation now mention that Nives is offered as a Text-to-speech choice only when the assistant's own **Language**, at the top of its settings under Settings → Voice assistants, matches the voice. An assistant first created in English keeps that language even if you later set its speech-to-text to Slovene.
+
 ## 2.6.7
 
-- **Transcription rides out a busy moment instead of failing.** When the transcription service was briefly overloaded, a spoken request could end in "speech-to-text failed" and you had to say it again. Nives now waits a few seconds and tries again, up to three more times, before giving up. You may notice a short pause on those occasions; the request goes through.
+- **Transcription rides out a busy moment instead of failing.** When the transcription service was briefly overloaded, a spoken request could end in "speech-to-text failed" and you had to say it again. Nives now waits a few seconds and tries again, up to three more times, before giving up. You may notice a short pause on those occasions, and in most cases the request then goes through.
 - **Every transcription is recorded in the add-on log**: how long you spoke, which language was expected, how long it took, how many tries it needed, and what was heard (the words themselves appear when Log Level is set to debug). When voice does not do what you meant, the log now shows whether it heard you wrongly or heard nothing at all. Bundles server 0.15.19.
 
 ## 2.6.6
