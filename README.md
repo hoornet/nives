@@ -9,7 +9,8 @@
 </p>
 
 
-<p align="center"><em>Nives (pronounced Nee-wes - traditional Slovenian female name) is an AI assistant for Home Assistant that remembers. One add-on, and the memory stays on your own machine.</em></p>
+<p align="center"><em>Nives (pronounced Nee-wes - traditional Slovenian female name) is an AI assistant for Home Assistant that remembers. </em></p>
+<p align="center"><em>One add-on, and the memory stays on your own machine.</em></p>
 
 <p align="center">
   <img src="assets/memory-recall.png" alt="Asking Nives what it remembers, and getting back a list of preferences and routines" width="540">
