@@ -13,6 +13,7 @@
 <p align="center">
   <img src="assets/memory-recall.png" alt="Asking Nives what it remembers, and getting back a list of preferences and routines" width="540">
 </p>
+Nives is pronounced Nee-wes and is Slovenian female name.
 
 Talk to your home in plain language, by voice or text through HA Assist, and Nives recalls your preferences, routines, device nicknames, and sensor baselines across every conversation. No re-teaching, no re-explaining.
 
