@@ -7,13 +7,14 @@
   <a href="nives/CHANGELOG.md"><img alt="Add-on version" src="https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhoornet%2Fnives%2Fmaster%2Fnives%2Fconfig.yaml&query=%24.version&label=Add--on&color=10b981"></a>
   <img alt="Architectures" src="https://img.shields.io/badge/arch-amd64%20%C2%B7%20aarch64-64748b">
 </p>
+Nives is pronounced Nee-wes and is a traditional Slovenian female name.
 
 <p align="center"><em>An AI assistant for Home Assistant that remembers. One add-on, and the memory stays on your own machine.</em></p>
 
 <p align="center">
   <img src="assets/memory-recall.png" alt="Asking Nives what it remembers, and getting back a list of preferences and routines" width="540">
 </p>
-Nives is pronounced Nee-wes and is Slovenian female name.
+
 
 Talk to your home in plain language, by voice or text through HA Assist, and Nives recalls your preferences, routines, device nicknames, and sensor baselines across every conversation. No re-teaching, no re-explaining.
 
