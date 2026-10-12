@@ -28,6 +28,12 @@ const mockCreate = vi.fn();
 vi.mock("openai", () => {
   return {
     default: class MockOpenAI {
+      // The real client exposes the endpoint it was built for; the engine keys
+      // what it has learned about an endpoint on it.
+      baseURL: string;
+      constructor(options?: { baseURL?: string }) {
+        this.baseURL = options?.baseURL ?? "https://api.openai.com/v1";
+      }
       chat = {
         completions: {
           create: mockCreate,
@@ -1276,6 +1282,24 @@ describe("Mistral request shape", () => {
     expect(request).not.toHaveProperty("stream_options");
     expect(request).not.toHaveProperty("session_id");
     expect(request.stream).toBe(true);
+  });
+
+  // With "high", Mistral replies in thinking and text chunks the loop does not
+  // read. The guard is in withReasoningEffort and needs the endpoint handed in.
+  it.each([
+    ["high", "https://api.mistral.ai/v1", undefined],
+    ["none", "https://api.mistral.ai/v1", "none"],
+    ["high", "https://openrouter.ai/api/v1", "high"],
+  ] as const)("with Thinking Effort %s at %s, sends %s", async (effort, baseUrl, sent) => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    resetReasoningEffortCache();
+    mockCreate.mockResolvedValueOnce(reply());
+    const engine = build(baseUrl);
+    (engine as unknown as { config: Config }).config.reasoningEffort = effort;
+    await engine.chat({ message: "hi", userId: "u" });
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockCreate.mock.calls[0][0].reasoning_effort).toBe(sent);
+    info.mockRestore();
   });
 
   it.each([
