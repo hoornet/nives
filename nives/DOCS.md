@@ -151,12 +151,12 @@ Going deep on local or Ollama setups? The open-source [home-mind](https://github
 
 ### Setup
 
-1. Get an API key from your chosen provider (Anthropic, OpenAI, OpenRouter, or Ollama)
+1. Get an API key from your chosen provider (Anthropic, OpenAI, OpenRouter, Mistral, or Ollama)
 2. In the add-on Configuration tab:
    - Set **LLM Mode** to `byok`
    - Set **Provider** to your chosen provider
    - Paste your **API Key**
-   - Set a **Model** — optional for Anthropic, OpenAI and OpenRouter (each has a sensible default); **required for Ollama**, where you must enter the model you pulled (e.g. `qwen3:8b`)
+   - Set a **Model** — optional for Anthropic, OpenAI, OpenRouter and Mistral (each has a sensible default); **required for Ollama**, where you must enter the model you pulled (e.g. `qwen3:8b`)
 3. Save and start the add-on
 
 ### BYOK Configuration
@@ -164,17 +164,36 @@ Going deep on local or Ollama setups? The open-source [home-mind](https://github
 | Option | Description |
 |--------|-------------|
 | LLM Mode | Set to `byok` |
-| Provider | `anthropic`, `openai`, `openrouter`, or `ollama` |
+| Provider | `anthropic`, `openai`, `openrouter`, `mistral`, or `ollama` |
 | API Key | Your provider API key |
-| Model | Model ID. Optional for Anthropic / OpenAI / OpenRouter; **required for Ollama** |
-| API Base URL | Custom endpoint. Leave empty for cloud providers; for Ollama, defaults to `http://homeassistant:11434/v1` if you leave it blank |
+| Model | Model ID. Optional for Anthropic / OpenAI / OpenRouter / Mistral; **required for Ollama** |
+| API Base URL | Custom endpoint. Leave empty for cloud providers; for Ollama, defaults to `http://homeassistant:11434/v1` if you leave it blank. Mistral defaults to `https://api.mistral.ai/v1`; set it only for a different Mistral endpoint |
 
 ### Supported Providers
 
 - **Anthropic** — Claude models (direct API)
 - **OpenAI** — GPT models (direct API)
 - **OpenRouter** — Access to many models via a single key (recommended for BYOK)
+- **Mistral AI** — Mistral models (direct API, key from console.mistral.ai)
 - **Ollama** — Local models running on your network
+
+### Mistral notes
+
+Models that support tool calling, which Nives needs:
+
+- `mistral-small-latest` — the default when Model is left empty
+- `mistral-medium-latest`, `mistral-large-latest`
+- `ministral-8b-latest`, `ministral-14b-latest`
+- `magistral-small-latest`, `magistral-medium-latest` (reasoning models)
+
+Mistral's [function calling page](https://docs.mistral.ai/studio/conversations/function-calling) is the authoritative list.
+
+Known limitations:
+
+- **Thinking Effort** accepts only `none` or `high` on Mistral. Any other value is left out for that model, and the add-on log says so once.
+- Mistral rejects requests that carry fields it does not know, so a custom **API Base URL** must be a real Mistral endpoint. Nives adjusts its requests only for `api.mistral.ai`; a Mistral endpoint on another host can refuse chat requests with an HTTP 422 error.
+- Memory extraction quality on the smallest Ministral models is unverified.
+- The camera-snapshot AI Task needs a vision-capable model, for example Mistral Small 3.x or Mistral Medium.
 
 ---
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.8.1
+
+- **Mistral AI is now a Bring Your Own Key provider.** Choose `mistral` as the Provider and paste a key from console.mistral.ai. The Model is optional: left empty, Nives uses `mistral-small-latest`. Controlling your home, streamed replies and memory all work with the models Mistral lists as supporting function calling (Mistral Small, Medium and Large, Ministral, Magistral, Devstral, Codestral). Two things to know: on Mistral, **Thinking Effort** accepts only `none` or `high`, and any other value is left out for that model, with a line in the add-on log saying so; and as with every Bring Your Own Key provider, your requests go straight from your Home Assistant to Mistral. Thanks to @Blend0963 for the request (#104). Server 0.17.1.
+
 ## 2.8.0
 
 - **A new Slovene voice that sounds like a person.** Under **Voice** you can now pick `slovene_female_premium`, a woman's voice that reads replies with the rhythm and emphasis of a native speaker. We listened to a dozen candidate voices on sensor readings, room names and everyday replies and kept the one that put the stress on the right syllable in every test; a man's voice of the same quality will follow when one passes the same test. It costs about twice as much per reply as the standard voices, which is still a fraction of a cent. The standard `slovene_female` and `slovene_male` voices stay as they are. Pick the voice, restart the add-on, and Nives speaks with it in your Assist pipeline as before. Server 0.17.0.

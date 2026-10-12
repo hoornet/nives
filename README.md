@@ -104,7 +104,7 @@ In the meantime **Bring Your Own Key** below is free, does everything the manage
 
 ### Bring Your Own Key (BYOK), for tinkerers
 
-Prefer full control? Run Nives with **your own** provider key (Anthropic, OpenAI, OpenRouter, or a local Ollama endpoint) and pick your own model. Nothing to buy from us, ever.
+Prefer full control? Run Nives with **your own** provider key (Anthropic, OpenAI, OpenRouter, Mistral, or a local Ollama endpoint) and pick your own model. Nothing to buy from us, ever.
 
 A few honest notes so it goes smoothly:
 
@@ -153,7 +153,7 @@ What has actually diverged:
 | **Speech-to-text** | your pipeline's own engine | same, plus optional cloud transcription on a Nives Cloud key |
 | **Voice satellites** | | sets `continue_conversation` after a question, so the satellite reopens the mic |
 | **arm64 / Raspberry Pi** | official Shodh Docker image is amd64-only | add-on ships arm64 binaries, so it works on a Pi or arm64 HAOS out of the box |
-| **Models** | BYOK: Anthropic / OpenAI / OpenRouter / Ollama | same BYOK, plus optional managed Nives Cloud |
+| **Models** | BYOK: Anthropic / OpenAI / OpenRouter / Mistral / Ollama | same BYOK, plus optional managed Nives Cloud |
 
 Both are AGPL-3.0 with open repos, and both are maintained. **The assistant itself is never gated**: every memory, automation, and AI Task feature works the same on BYOK, and that path is free and never touches our servers. Cloud exists purely as the less-tinkering option. (The one Cloud-only extra is optional transcription, because it's billed from your balance; on BYOK you use Home Assistant's own speech-to-text, which is already there.) If you enjoy owning every moving part, home-mind is built for you; if you'd rather it just work, that's Nives.
 
