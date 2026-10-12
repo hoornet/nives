@@ -49,8 +49,7 @@ configuration:
         name: Provider
         description: >-
           Which LLM provider to use. OpenRouter gives access to many models with a single key.
-          Mistral uses your key from console.mistral.ai; models from mistral-small-latest up
-          support tool calling.
+          Mistral uses your key from console.mistral.ai.
       api_key:
         name: API Key
         description: >-

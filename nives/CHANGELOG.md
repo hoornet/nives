@@ -2,7 +2,7 @@
 
 ## 2.8.1
 
-- **Mistral AI is now a Bring Your Own Key provider.** Choose `mistral` as the Provider and paste a key from console.mistral.ai. The Model is optional: left empty, Nives uses `mistral-small-latest`. Controlling your home, streamed replies and memory all work with the models Mistral lists as supporting function calling (Mistral Small, Medium and Large, Ministral, Magistral, Devstral, Codestral). Two things to know: on Mistral, **Thinking Effort** accepts only `none` or `high`, and any other value is left out for that model, with a line in the add-on log saying so; and as with every Bring Your Own Key provider, your requests go straight from your Home Assistant to Mistral. Thanks to @Blend0963 for the request (#104). Server 0.17.1.
+- **Mistral AI is now a Bring Your Own Key provider.** Choose `mistral` as the Provider and paste a key from console.mistral.ai. The Model is optional: left empty, Nives uses `mistral-small-latest`. Any Mistral model that supports function calling will do, for example Mistral Small, Medium or Large, or Ministral. Two things to know: on Mistral, **Thinking Effort** works as `none` only for now, and any other value is left out, with a line in the add-on log saying so; and as with every Bring Your Own Key provider, your requests go straight from your Home Assistant to Mistral. The documentation has a short Mistral section with the models and the known limitations. Thanks to @Blend0963 for the request (#104). Server 0.17.1.
 
 ## 2.8.0
 

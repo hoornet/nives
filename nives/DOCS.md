@@ -184,16 +184,17 @@ Models that support tool calling, which Nives needs:
 - `mistral-small-latest` — the default when Model is left empty
 - `mistral-medium-latest`, `mistral-large-latest`
 - `ministral-8b-latest`, `ministral-14b-latest`
-- `magistral-small-latest`, `magistral-medium-latest` (reasoning models)
 
 Mistral's [function calling page](https://docs.mistral.ai/studio/conversations/function-calling) is the authoritative list.
 
 Known limitations:
 
-- **Thinking Effort** accepts only `none` or `high` on Mistral. Any other value is left out for that model, and the add-on log says so once.
+- **Thinking Effort** works as `none` only on Mistral. Any other value is left out, and the add-on log says so once. With its reasoning turned up, Mistral returns the answer in a format Nives does not read yet.
+- For the same reason, models that always include their reasoning in the answer, such as `zai-glm-5-3`, are not supported yet.
 - Mistral rejects requests that carry fields it does not know, so a custom **API Base URL** must be a real Mistral endpoint. Nives adjusts its requests only for `api.mistral.ai`; a Mistral endpoint on another host can refuse chat requests with an HTTP 422 error.
+- Coming from Ollama? Clear the **API Base URL**, otherwise your requests keep going to the old address. When one is set, the add-on log names it at startup.
 - Memory extraction quality on the smallest Ministral models is unverified.
-- The camera-snapshot AI Task needs a vision-capable model, for example Mistral Small 3.x or Mistral Medium.
+- The camera-snapshot AI Task needs a model that accepts images, for example `mistral-medium-latest`.
 
 ---
 
