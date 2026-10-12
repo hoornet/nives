@@ -1195,33 +1195,35 @@ describe("stream events: turn boundaries and the long-lookup heads-up", () => {
   });
 });
 
+// An engine pointed at one OpenAI-compatible endpoint, everything else stubbed.
+const build = (baseUrl?: string) => {
+  const config = {
+    llmProvider: "openai",
+    llmModel: "gpt-test",
+    openaiApiKey: "k",
+    openaiBaseUrl: baseUrl,
+    memoryTokenLimit: 1500,
+    logLevel: "info",
+  } as Config;
+  const memory = { getFactsWithinTokenLimit: vi.fn().mockResolvedValue([]) } as unknown as IMemoryStore;
+  const conversations = {
+    getConversationHistory: vi.fn().mockReturnValue([]),
+    storeMessage: vi.fn(),
+  } as unknown as IConversationStore;
+  const scanner = {
+    refreshIfStale: vi.fn().mockResolvedValue(undefined),
+    hasProfiles: vi.fn().mockReturnValue(false),
+    formatCheatSheet: vi.fn().mockReturnValue(""),
+  } as unknown as DeviceScanner;
+  const topology = {
+    refreshIfStale: vi.fn().mockResolvedValue(undefined),
+    hasLayout: vi.fn().mockReturnValue(false),
+    formatSection: vi.fn().mockReturnValue(""),
+  } as unknown as TopologyScanner;
+  return new OpenAIChatEngine(config, memory, conversations, {} as IFactExtractor, {} as HomeAssistantClient, scanner, topology);
+};
+
 describe("OpenRouter session affinity", () => {
-  const build = (baseUrl?: string) => {
-    const config = {
-      llmProvider: "openai",
-      llmModel: "gpt-test",
-      openaiApiKey: "k",
-      openaiBaseUrl: baseUrl,
-      memoryTokenLimit: 1500,
-      logLevel: "info",
-    } as Config;
-    const memory = { getFactsWithinTokenLimit: vi.fn().mockResolvedValue([]) } as unknown as IMemoryStore;
-    const conversations = {
-      getConversationHistory: vi.fn().mockReturnValue([]),
-      storeMessage: vi.fn(),
-    } as unknown as IConversationStore;
-    const scanner = {
-      refreshIfStale: vi.fn().mockResolvedValue(undefined),
-      hasProfiles: vi.fn().mockReturnValue(false),
-      formatCheatSheet: vi.fn().mockReturnValue(""),
-    } as unknown as DeviceScanner;
-    const topology = {
-      refreshIfStale: vi.fn().mockResolvedValue(undefined),
-      hasLayout: vi.fn().mockReturnValue(false),
-      formatSection: vi.fn().mockReturnValue(""),
-    } as unknown as TopologyScanner;
-    return new OpenAIChatEngine(config, memory, conversations, {} as IFactExtractor, {} as HomeAssistantClient, scanner, topology);
-  };
   const reply = () =>
     makeStream([
       { choices: [{ delta: { content: "ok" }, finish_reason: null }], provider: "OpenAI" },
@@ -1253,6 +1255,67 @@ describe("OpenRouter session affinity", () => {
     await engine.chat({ message: "hi", userId: "u", conversationId: "conv-9" });
     const line = log.mock.calls.map((c) => String(c[0])).find((l) => l.includes("turn ok"));
     expect(line).toContain("provider=OpenAI");
+    log.mockRestore();
+  });
+});
+
+describe("Mistral request shape", () => {
+  const reply = () =>
+    makeStream([{ choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] }]);
+
+  beforeEach(() => {
+    resetTokenCapCache();
+    mockCreate.mockReset();
+  });
+
+  // Mistral answers any field outside its schema with a 422 before the first chunk.
+  it("sends neither stream_options nor session_id to Mistral", async () => {
+    mockCreate.mockResolvedValueOnce(reply());
+    await build("https://api.mistral.ai/v1").chat({ message: "hi", userId: "u", conversationId: "conv-9" });
+    const request = mockCreate.mock.calls[0][0];
+    expect(request).not.toHaveProperty("stream_options");
+    expect(request).not.toHaveProperty("session_id");
+    expect(request.stream).toBe(true);
+  });
+
+  it.each([
+    ["OpenRouter", "https://openrouter.ai/api/v1"],
+    ["a local OpenAI-compatible server", "http://homeassistant:11434/v1"],
+    ["OpenAI itself", undefined],
+  ])("still asks %s for the usage breakdown", async (_name, baseUrl) => {
+    mockCreate.mockResolvedValueOnce(reply());
+    await build(baseUrl).chat({ message: "hi", userId: "u" });
+    expect(mockCreate.mock.calls[0][0].stream_options).toEqual({ include_usage: true });
+  });
+
+  it.each([
+    [
+      "on a last chunk of its own",
+      [
+        { choices: [{ delta: { content: "ok" }, finish_reason: "stop" }] },
+        { choices: [], usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 } },
+      ],
+    ],
+    [
+      "on the chunk that ends the answer",
+      [
+        { choices: [{ delta: { content: "ok" }, finish_reason: null }] },
+        {
+          choices: [{ delta: { content: "" }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 },
+        },
+      ],
+    ],
+  ])("reads the usage Mistral reports unasked, %s", async (_where, chunks) => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockCreate.mockResolvedValueOnce(makeStream(chunks));
+    const engine = build("https://api.mistral.ai/v1");
+    (engine as unknown as { config: Config }).config.logLevel = "debug";
+    const result = await engine.chat({ message: "hi", userId: "u" });
+    const line = log.mock.calls.map((c) => String(c[0])).find((l) => l.includes("turn ok"));
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty("stream_options");
+    expect(result.response).toBe("ok");
+    expect(line).toContain("prompt=12 completion=3");
     log.mockRestore();
   });
 });
