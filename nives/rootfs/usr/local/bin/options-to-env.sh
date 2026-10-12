@@ -179,7 +179,10 @@ else
             write_env "OPENAI_API_KEY" "$LLM_API_KEY"
             write_env "OPENAI_BASE_URL" "${LLM_BASE_URL:-https://api.mistral.ai/v1}"
             if [ -n "$LLM_BASE_URL" ]; then
-                echo "[init] Mistral: using the API Base URL from the configuration (${LLM_BASE_URL})"
+                # A user:password@ part or a query string can carry a credential,
+                # and this log gets pasted into bug reports.
+                shown=$(printf '%s' "${LLM_BASE_URL%%\?*}" | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@#\1#')
+                echo "[init] Mistral: using the API Base URL from the configuration (${shown})"
             fi
             ;;
         ollama)
