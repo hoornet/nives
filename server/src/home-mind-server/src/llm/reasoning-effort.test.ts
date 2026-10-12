@@ -73,6 +73,34 @@ describe("withReasoningEffort", () => {
     expect(send.mock.calls).toEqual([[{ reasoning_effort: "low" }], [{}]]);
   });
 
+  // With "high", Mistral replies in thinking and text chunks that nothing here reads yet.
+  it("sends Mistral no effort but none, and says so once", async () => {
+    const info = vi.mocked(console.info);
+    const mistral = "https://api.mistral.ai/v1";
+
+    for (const effort of ["minimal", "low", "medium", "high"] as const) {
+      const send = vi.fn().mockResolvedValue("ok");
+      expect(await withReasoningEffort(`model-${effort}`, effort, send, mistral)).toBe("ok");
+      expect(send.mock.calls).toEqual([[{}]]);
+    }
+    expect(info).toHaveBeenCalledTimes(4);
+
+    const again = vi.fn().mockResolvedValue("ok");
+    await withReasoningEffort("model-high", "high", again, mistral);
+    expect(again.mock.calls).toEqual([[{}]]);
+    expect(info).toHaveBeenCalledTimes(4);
+  });
+
+  it("still sends none to Mistral, and high everywhere else", async () => {
+    const none = vi.fn().mockResolvedValue("ok");
+    await withReasoningEffort("m", "none", none, "https://api.mistral.ai/v1");
+    expect(none.mock.calls).toEqual([[{ reasoning_effort: "none" }]]);
+
+    const elsewhere = vi.fn().mockResolvedValue("ok");
+    await withReasoningEffort("m", "high", elsewhere, "https://openrouter.ai/api/v1");
+    expect(elsewhere.mock.calls).toEqual([[{ reasoning_effort: "high" }]]);
+  });
+
   it("does not swallow an unrelated 400", async () => {
     const unrelated = Object.assign(new Error("400 Invalid schema for function"), { status: 400 });
     const send = vi.fn().mockRejectedValue(unrelated);
