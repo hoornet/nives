@@ -20,11 +20,15 @@ const rejectsReasoningEffort = new Set<string>();
 /**
  * True when a 400 names `reasoning_effort`. Kept narrow on purpose: any other
  * 400 (bad model name, malformed tool schema) must surface unchanged.
+ *
+ * Mistral validates with a 422 instead and accepts only `high` and `none`, so
+ * `minimal`, `low` and `medium` come back as a 422 whose body names the field
+ * (`"loc":["body","reasoning_effort"]`). That counts as the same answer.
  */
 export function isReasoningEffortUnsupported(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   const err = error as { status?: number; param?: string; message?: string };
-  if (err.status !== 400) return false;
+  if (err.status !== 400 && err.status !== 422) return false;
   if (err.param === "reasoning_effort") return true;
   return typeof err.message === "string" && /reasoning[_. ]?effort/i.test(err.message);
 }
