@@ -56,6 +56,33 @@ describe("OpenAITtsService", () => {
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ input: "156 units" }));
   });
 
+  it("gives an ElevenLabs voice the written reply untouched and pins the language", async () => {
+    // ElevenLabs reads "156 enot" and "PM2,5" correctly as written, and letter names make it worse;
+    // what it needs instead is the language pinned, nested the way OpenRouter forwards it.
+    const create = vi.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
+    const svc = new OpenAITtsService("k", "elevenlabs/eleven-v4", "daniel", "https://example.invalid/v1", "sl");
+    (svc as unknown as { client: { audio: { speech: { create: typeof create } } } }).client = {
+      audio: { speech: { create } },
+    };
+    await svc.synthesize("VOC je 156 enot, PM2,5 pa 8,6 mikrograma.");
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: "VOC je 156 enot, PM2,5 pa 8,6 mikrograma.",
+        provider: { options: { elevenlabs: { language_code: "sl" } } },
+      })
+    );
+  });
+
+  it("sends no provider options to a voice that does not take them", async () => {
+    const create = vi.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
+    const svc = new OpenAITtsService("k", "microsoft/mai-voice-2", "sl-SI-PetraNeural", "https://example.invalid/v1", "sl");
+    (svc as unknown as { client: { audio: { speech: { create: typeof create } } } }).client = {
+      audio: { speech: { create } },
+    };
+    await svc.synthesize("Dober dan.");
+    expect(create).toHaveBeenCalledWith(expect.not.objectContaining({ provider: expect.anything() }));
+  });
+
   it("returns the audio as a Buffer", async () => {
     const { svc } = serviceWithSpy();
     expect(Buffer.isBuffer(await svc.synthesize("Dober dan."))).toBe(true);
