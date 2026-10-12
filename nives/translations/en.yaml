@@ -49,6 +49,8 @@ configuration:
         name: Provider
         description: >-
           Which LLM provider to use. OpenRouter gives access to many models with a single key.
+          Mistral uses your key from console.mistral.ai; models from mistral-small-latest up
+          support tool calling.
       api_key:
         name: API Key
         description: >-
@@ -57,12 +59,13 @@ configuration:
         name: Model
         description: >-
           Model ID to use. Examples: anthropic/claude-haiku-4.5 (OpenRouter),
-          claude-haiku-4-5-20251001 (Anthropic), gpt-4o-mini (OpenAI). Leave empty for provider default.
+          claude-haiku-4-5-20251001 (Anthropic), gpt-4o-mini (OpenAI),
+          mistral-small-latest (Mistral). Leave empty for provider default.
       base_url:
         name: API Base URL
         description: >-
           Custom API endpoint. Required for Ollama (e.g. http://homeassistant:11434/v1).
-          Leave empty for cloud providers.
+          Leave empty for cloud providers (Mistral defaults to https://api.mistral.ai/v1).
   custom_prompt:
     name: Custom Prompt
     description: >-

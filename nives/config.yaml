@@ -50,7 +50,7 @@ schema:
     # them, so the explanation lives in the translation's description.
     voice: "list(off|slovene_female|slovene_male|slovene_female_premium)?"
   byok:
-    provider: "list(anthropic|openai|openrouter|ollama)?"
+    provider: "list(anthropic|openai|openrouter|mistral|ollama)?"
     api_key: "password?"
     model: "str?"
     base_url: "str?"

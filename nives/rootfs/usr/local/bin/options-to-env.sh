@@ -170,6 +170,13 @@ else
             write_env "OPENAI_API_KEY" "$LLM_API_KEY"
             write_env "OPENAI_BASE_URL" "https://openrouter.ai/api/v1"
             ;;
+        mistral)
+            # Mistral's API is OpenAI-compatible — rewrite provider to openai, like
+            # OpenRouter. The base URL may be overridden (EU/self-hosted endpoints).
+            write_env "LLM_PROVIDER" "openai"
+            write_env "OPENAI_API_KEY" "$LLM_API_KEY"
+            write_env "OPENAI_BASE_URL" "${LLM_BASE_URL:-https://api.mistral.ai/v1}"
+            ;;
         ollama)
             write_env "OLLAMA_BASE_URL" "${LLM_BASE_URL:-http://homeassistant:11434/v1}"
             ;;
@@ -191,6 +198,10 @@ else
             openai)
                 write_env "LLM_MODEL" "gpt-5-mini"
                 echo "[init] No model set — defaulting to gpt-5-mini"
+                ;;
+            mistral)
+                write_env "LLM_MODEL" "mistral-small-latest"
+                echo "[init] No model set — defaulting to mistral-small-latest"
                 ;;
             ollama)
                 echo "[init] WARNING: Ollama has no default model. Set 'Model' in the add-on"
