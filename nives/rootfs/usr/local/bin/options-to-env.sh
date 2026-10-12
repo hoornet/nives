@@ -172,10 +172,15 @@ else
             ;;
         mistral)
             # Mistral's API is OpenAI-compatible — rewrite provider to openai, like
-            # OpenRouter. The base URL may be overridden (EU/self-hosted endpoints).
+            # OpenRouter. The base URL may be overridden for another Mistral
+            # endpoint. Name it in the log when it is: one left over from a previous
+            # provider (Ollama needs one) would otherwise take the requests unnoticed.
             write_env "LLM_PROVIDER" "openai"
             write_env "OPENAI_API_KEY" "$LLM_API_KEY"
             write_env "OPENAI_BASE_URL" "${LLM_BASE_URL:-https://api.mistral.ai/v1}"
+            if [ -n "$LLM_BASE_URL" ]; then
+                echo "[init] Mistral: using the API Base URL from the configuration (${LLM_BASE_URL})"
+            fi
             ;;
         ollama)
             write_env "OLLAMA_BASE_URL" "${LLM_BASE_URL:-http://homeassistant:11434/v1}"
