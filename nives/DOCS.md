@@ -73,13 +73,19 @@ Settings → Devices & services makes it appear at once.) Speaking is paid from
 the same balance as your conversations, and costs a fraction of a cent per
 reply.
 
-Two voices are available today, both Slovene:
+Three voices are available today, all Slovene:
 
 | Setting | Voice |
 |---|---|
 | `off` | Your Assist pipeline's own voice (the default) |
 | `slovene_female` | A woman's voice |
 | `slovene_male` | A man's voice |
+| `slovene_female_premium` | A woman's voice that sounds more natural, about twice the price per reply |
+
+The premium voice is the one we would pick for a home that talks to Nives a lot:
+it reads like a person rather than a careful announcer. All of them cost a
+fraction of a cent per reply, so the difference only shows on a busy day. A
+premium man's voice will follow when one passes the same listening test.
 
 More languages will follow as each is tested. A voice is added only when it is
 genuinely good in that language — a bad voice is worse than none, and the local

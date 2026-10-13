@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.8.0
+
+- **A new Slovene voice that sounds like a person.** Under **Voice** you can now pick `slovene_female_premium`, a woman's voice that reads replies with the rhythm and emphasis of a native speaker. We listened to a dozen candidate voices on sensor readings, room names and everyday replies and kept the one that put the stress on the right syllable in every test; a man's voice of the same quality will follow when one passes the same test. It costs about twice as much per reply as the standard voices, which is still a fraction of a cent. The standard `slovene_female` and `slovene_male` voices stay as they are. Pick the voice, restart the add-on, and Nives speaks with it in your Assist pipeline as before. Server 0.17.0.
+
 ## 2.7.1
 
 - **Spoken replies read as normal text again.** With a Slovene voice, measurements such as PM2,5, CO2 or VOC were written into the reply the way they are pronounced ("Pe em dve celi pet"), so they sounded right but were hard to read in the Assist chat log and the app, where the same reply is displayed. The reply now keeps the usual spelling, and the voice is given the letter names separately, so what you read says "PM2,5" and what you hear is unchanged. Server 0.16.1.

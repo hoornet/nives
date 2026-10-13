@@ -30,7 +30,9 @@ configuration:
           such as Piper or Home Assistant Cloud. That is the right choice for
           English and most languages. Choose a voice here only when Nives offers
           one for your language that sounds better than what you have. Today that
-          is Slovene, with a female and a male voice. Once chosen and the add-on
+          is Slovene: a standard female and male voice, and a "premium" female
+          voice that sounds more natural and costs about twice as much per
+          reply, still a fraction of a cent. Once chosen and the add-on
           restarted, Nives appears as a Text-to-speech choice in your Assist
           pipeline (Settings, Voice assistants), provided that assistant's own
           Language, at the top of its settings, matches the voice. Speaking is

@@ -1,5 +1,5 @@
 name: "Nives"
-version: "2.7.1"
+version: "2.8.0"
 slug: "nives"
 description: "AI assistant with cognitive memory for Home Assistant"
 url: "https://github.com/hoornet/nives"
@@ -48,7 +48,7 @@ schema:
     # choice is a voice native to that language, so the list is short and grows
     # only as languages are tested. HA shows list values raw and cannot relabel
     # them, so the explanation lives in the translation's description.
-    voice: "list(off|slovene_female|slovene_male)?"
+    voice: "list(off|slovene_female|slovene_male|slovene_female_premium)?"
   byok:
     provider: "list(anthropic|openai|openrouter|ollama)?"
     api_key: "password?"
