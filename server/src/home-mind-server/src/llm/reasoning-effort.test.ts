@@ -62,6 +62,45 @@ describe("withReasoningEffort", () => {
     expect(sibling).toHaveBeenCalledWith({ reasoning_effort: "low" });
   });
 
+  it("retries without the parameter after a 422 that names it", async () => {
+    const mistral = Object.assign(
+      new Error('422 {"detail":[{"type":"enum","loc":["body","reasoning_effort"],"input":"low"}]}'),
+      { status: 422 }
+    );
+    const send = vi.fn().mockRejectedValueOnce(mistral).mockResolvedValue("ok");
+
+    expect(await withReasoningEffort("mistral-small-latest", "low", send)).toBe("ok");
+    expect(send.mock.calls).toEqual([[{ reasoning_effort: "low" }], [{}]]);
+  });
+
+  // With "high", Mistral replies in thinking and text chunks that nothing here reads yet.
+  it("sends Mistral no effort but none, and says so once", async () => {
+    const info = vi.mocked(console.info);
+    const mistral = "https://api.mistral.ai/v1";
+
+    for (const effort of ["minimal", "low", "medium", "high"] as const) {
+      const send = vi.fn().mockResolvedValue("ok");
+      expect(await withReasoningEffort(`model-${effort}`, effort, send, mistral)).toBe("ok");
+      expect(send.mock.calls).toEqual([[{}]]);
+    }
+    expect(info).toHaveBeenCalledTimes(4);
+
+    const again = vi.fn().mockResolvedValue("ok");
+    await withReasoningEffort("model-high", "high", again, mistral);
+    expect(again.mock.calls).toEqual([[{}]]);
+    expect(info).toHaveBeenCalledTimes(4);
+  });
+
+  it("still sends none to Mistral, and high everywhere else", async () => {
+    const none = vi.fn().mockResolvedValue("ok");
+    await withReasoningEffort("m", "none", none, "https://api.mistral.ai/v1");
+    expect(none.mock.calls).toEqual([[{ reasoning_effort: "none" }]]);
+
+    const elsewhere = vi.fn().mockResolvedValue("ok");
+    await withReasoningEffort("m", "high", elsewhere, "https://openrouter.ai/api/v1");
+    expect(elsewhere.mock.calls).toEqual([[{ reasoning_effort: "high" }]]);
+  });
+
   it("does not swallow an unrelated 400", async () => {
     const unrelated = Object.assign(new Error("400 Invalid schema for function"), { status: 400 });
     const send = vi.fn().mockRejectedValue(unrelated);
@@ -96,6 +135,29 @@ describe("isReasoningEffortUnsupported", () => {
     expect(
       isReasoningEffortUnsupported({ status: 400, message: "Unknown field: reasoning.effort" })
     ).toBe(true);
+  });
+
+  // Mistral validates with 422. The SDK folds the response body into the
+  // message, so the field shows up as it does in `detail[].loc`.
+  it("recognises a 422 that names the parameter", () => {
+    const mistral = {
+      status: 422,
+      message:
+        '422 {"detail":[{"type":"enum","loc":["body","reasoning_effort"],' +
+        '"msg":"Input should be \'high\' or \'none\'","input":"low"}]}',
+    };
+    expect(isReasoningEffortUnsupported(mistral)).toBe(true);
+    expect(isReasoningEffortUnsupported({ status: 422, param: "reasoning_effort" })).toBe(true);
+  });
+
+  it("leaves a 422 about anything else alone", () => {
+    const unrelated = {
+      status: 422,
+      message:
+        '422 {"detail":[{"type":"extra_forbidden","loc":["body","stream_options"],' +
+        '"msg":"Extra inputs are not permitted"}]}',
+    };
+    expect(isReasoningEffortUnsupported(unrelated)).toBe(false);
   });
 
   it("ignores everything else", () => {
