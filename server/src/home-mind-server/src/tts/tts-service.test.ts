@@ -60,7 +60,7 @@ describe("OpenAITtsService", () => {
     // ElevenLabs reads "156 enot" and "PM2,5" correctly as written, and letter names make it worse;
     // what it needs instead is the language pinned, nested the way OpenRouter forwards it.
     const create = vi.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) }));
-    const svc = new OpenAITtsService("k", "elevenlabs/eleven-v4", "daniel", "https://example.invalid/v1", "sl");
+    const svc = new OpenAITtsService("k", "elevenlabs/eleven-v4", "jessica", "https://example.invalid/v1", "sl");
     (svc as unknown as { client: { audio: { speech: { create: typeof create } } } }).client = {
       audio: { speech: { create } },
     };

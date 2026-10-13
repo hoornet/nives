@@ -120,17 +120,17 @@ if [ "$LLM_MODE" = "cloud" ]; then
         # in a way every native listener catches instantly. The voice decides,
         # not the persona: the user hears the voice.
         # The model travels with the voice too: a voice name only means something to the
-        # model it belongs to. The "premium" pair (2.8.0) is ElevenLabs v4, picked by ear in
-        # the 2026-10 Slovene bake-off (jessica 4/4 and daniel 9/9 on word stress with the
-        # language pinned; the server pins it); it costs about twice the standard pair per
-        # reply, still a fraction of a cent. The server decides per model whether numbers and
-        # initialisms are spelled out for the voice (the standard pair needs it, ElevenLabs
-        # reads them right as written).
+        # model it belongs to. The "premium" voice (2.8.0) is ElevenLabs v4 jessica, the one
+        # voice that put the word stress right in every render of the 2026-10 Slovene bake-off
+        # once the language is pinned (the server pins it); every male voice tried slipped on
+        # some sentence, so there is no male premium voice yet. It costs about twice the
+        # standard voices per reply, still a fraction of a cent. The server decides per model
+        # whether numbers and initialisms are spelled out for the voice (the standard pair
+        # needs it; for ElevenLabs the letter names read worse than the written form).
         case "$CLOUD_VOICE" in
             slovene_female)         TTS_MODEL_ID="microsoft/mai-voice-2"; TTS_VOICE_ID="sl-SI-PetraNeural"; TTS_LANG="sl"; TTS_GENDER="female" ;;
             slovene_male)           TTS_MODEL_ID="microsoft/mai-voice-2"; TTS_VOICE_ID="sl-SI-RokNeural";   TTS_LANG="sl"; TTS_GENDER="male" ;;
             slovene_female_premium) TTS_MODEL_ID="elevenlabs/eleven-v4";  TTS_VOICE_ID="jessica";           TTS_LANG="sl"; TTS_GENDER="female" ;;
-            slovene_male_premium)   TTS_MODEL_ID="elevenlabs/eleven-v4";  TTS_VOICE_ID="daniel";            TTS_LANG="sl"; TTS_GENDER="male" ;;
             *)                      TTS_MODEL_ID=""; TTS_VOICE_ID=""; TTS_LANG=""; TTS_GENDER="" ;;
         esac
         # The cloud-side tts_model override predates the second model and names the one the
