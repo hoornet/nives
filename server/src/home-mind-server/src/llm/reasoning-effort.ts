@@ -24,9 +24,12 @@ const rejectsReasoningEffort = new Set<string>();
  * True when a 400 names `reasoning_effort`. Kept narrow on purpose: any other
  * 400 (bad model name, malformed tool schema) must surface unchanged.
  *
- * Mistral validates with a 422 instead and accepts only `high` and `none`, so
- * `minimal`, `low` and `medium` come back as a 422 whose body names the field
- * (`"loc":["body","reasoning_effort"]`). That counts as the same answer.
+ * Mistral's spec validates with a 422 and accepts only `high` and `none`, so
+ * `minimal`, `low` and `medium` would come back as a 422 whose body names the
+ * field (`"loc":["body","reasoning_effort"]`). That counts as the same answer.
+ * Seen live (2026-10-13): the Ministral models refuse every value, `none`
+ * included, with a 400 "reasoning_effort is not enabled for this model",
+ * which the 400 branch below already remembers.
  */
 export function isReasoningEffortUnsupported(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;

@@ -339,9 +339,10 @@ export class OpenAIChatEngine implements IChatEngine {
   }
 
   /**
-   * True when the endpoint is Mistral, which rejects any field outside its own
-   * schema (422 "Extra inputs are not permitted"). It has no `stream_options`
-   * and reports usage on the last chunk unasked.
+   * True when the endpoint is Mistral, whose published schema has no `stream_options`
+   * and whose service reports usage on the last chunk unasked. (The spec says an
+   * unknown field is a 422; the live service accepted the field in a 2026-10 test.
+   * Leaving it out is right either way, since nothing is lost without it.)
    */
   private isMistral(): boolean {
     return /api\.mistral\.ai/i.test(this.config.openaiBaseUrl ?? "");
@@ -378,8 +379,8 @@ export class OpenAIChatEngine implements IChatEngine {
             stream: true,
             // Ask for the token breakdown. Without this a streamed call reports no
             // usage at all, which is why a cap being spent entirely on reasoning
-            // looked identical to a prompt being too large. Mistral is exempt: it
-            // answers the field with a 422 and sends usage on the last chunk anyway.
+            // looked identical to a prompt being too large. Mistral is exempt: its
+            // schema has no such field and it sends usage on the last chunk anyway.
             ...(this.isMistral() ? {} : { stream_options: { include_usage: true } }),
             // OpenRouter only: a stable session id pins the follow-up turns of one
             // conversation to the provider endpoint that already holds the warm

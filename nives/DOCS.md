@@ -182,16 +182,19 @@ Going deep on local or Ollama setups? The open-source [home-mind](https://github
 Models that support tool calling, which Nives needs:
 
 - `mistral-small-latest` — the default when Model is left empty
-- `mistral-medium-latest`, `mistral-large-latest`
+- `mistral-medium-latest`
 - `ministral-8b-latest`, `ministral-14b-latest`
 
 Mistral's [function calling page](https://docs.mistral.ai/studio/conversations/function-calling) is the authoritative list.
+Checked against the live service on 2026-10-13 with `ministral-8b-latest`: streamed replies, device control through
+tool calls and memory extraction all work. The larger models were not part of the test workspace's plan, so they are
+listed on Mistral's word, not ours.
 
 Known limitations:
 
-- **Thinking Effort** works as `none` only on Mistral. Any other value is left out, and the add-on log says so once. With its reasoning turned up, Mistral returns the answer in a format Nives does not read yet.
-- For the same reason, models that always include their reasoning in the answer, such as `zai-glm-5-3`, are not supported yet.
-- Mistral rejects requests that carry fields it does not know, so a custom **API Base URL** must be a real Mistral endpoint. Nives adjusts its requests only for `api.mistral.ai`; a Mistral endpoint on another host can refuse chat requests with an HTTP 422 error.
+- **Thinking Effort** works as `none` only on Mistral. Any other value is left out, and the add-on log says so once. With its reasoning turned up, Mistral returns the answer in a format Nives does not read yet. The Ministral models refuse the setting altogether; Nives notices and stops sending it.
+- For the same reason, models that always include their reasoning in the answer are not supported yet.
+- Nives adjusts its requests for `api.mistral.ai` only. A Mistral-compatible endpoint on another host gets the standard requests, which the live service accepted in our test, but it is not something we check.
 - Coming from Ollama? Clear the **API Base URL**, otherwise your requests keep going to the old address. When one is set, the add-on log names it at startup.
 - Memory extraction quality on the smallest Ministral models is unverified.
 - The camera-snapshot AI Task needs a model that accepts images, for example `mistral-medium-latest`.
