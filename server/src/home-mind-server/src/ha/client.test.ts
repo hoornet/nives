@@ -701,6 +701,10 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
           add_entities: ["light.kitchen_table", "light.kitchen_table_2"],
         })
       ).rejects.toThrow(/kitchen_table_2 is not available/);
+      // Home Assistant lower-cases entity ids, so a capitalised one must not slip past.
+      await expect(
+        client.callService("scene", "apply", undefined, { entities: { "Lock.Front_Door": "unlocked" } })
+      ).rejects.toThrow(/lock\.front_door is not available/);
       expect(posted("scene/")).toBe(false);
       expect(posted("group/set")).toBe(false);
 
@@ -837,6 +841,28 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       await expect(
         client.requireExposedAutomation({ trigger: at7, action: { action: "script.garage_door" } })
       ).rejects.toThrow(/script\.garage_door is not available/);
+    });
+
+    it("checks capitalised ids the way Home Assistant reads them, lower-cased", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await expect(
+        client.requireExposedAutomation({
+          trigger: at7,
+          condition: { condition: "template", value_template: "{{ is_state('Lock.Front_Door', 'locked') }}" },
+          action: kitchenOn,
+        })
+      ).rejects.toThrow(/lock\.front_door is not available/);
+      await expect(
+        client.requireExposedAutomation({
+          trigger: { platform: "time", at: "Sensor.Phone_Next_Alarm" },
+          action: kitchenOn,
+        })
+      ).rejects.toThrow(/sensor\.phone_next_alarm is not available/);
+      // and an exposed entity written with capitals is still the exposed entity
+      await client.requireExposedAutomation({
+        trigger: at7,
+        action: { service: "light.turn_on", target: { entity_id: "Light.Kitchen_Table" } },
+      });
     });
 
     it("lets through words that only look like entities, and zones", async () => {

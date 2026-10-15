@@ -46,15 +46,19 @@ export function entityIdsIn(value: unknown): string[] {
 /**
  * The entity ids in one of `ENTITY_LIST_KEYS`: the keys of a scene's entity map,
  * or a list. Only strings shaped like an entity id count, since other
- * integrations use the same key names for other things. A template is returned
- * as it is, so the caller refuses it rather than skipping it.
+ * integrations use the same key names for other things. They are lower-cased
+ * first, as Home Assistant's `cv.entity_id` does: `Light.Hall` fails the shape
+ * test as written but reaches `light.hall` all the same. A template is
+ * returned as it is, so the caller refuses it rather than skipping it.
  */
 export function listedEntities(value: unknown): string[] {
   const ids =
     value && typeof value === "object" && !Array.isArray(value)
       ? Object.keys(value)
       : entityIdsIn(value);
-  return ids.filter((id) => isTemplate(id) || ENTITY_SHAPE.test(id));
+  return ids
+    .map((id) => (isTemplate(id) ? id : id.toLowerCase()))
+    .filter((id) => isTemplate(id) || ENTITY_SHAPE.test(id));
 }
 
 /** Everything an automation section names, by how it names it. */
@@ -80,11 +84,13 @@ export function emptyReach(): Reach {
 /**
  * Adds every adjacent pair in each dotted word: `states.sensor.cellar.state`
  * yields `sensor.cellar` among its pairs, and `states('lock.front')` yields
- * `lock.front`. Zones are left out: they define places, not devices, and a zone
- * trigger's person or tracker is named in its `entity_id`, which is checked.
+ * `lock.front`. The text is lower-cased first, because Home Assistant
+ * lower-cases an entity id wherever it looks one up. Zones are left out: they
+ * define places, not devices, and a zone trigger's person or tracker is named
+ * in its `entity_id`, which is checked.
  */
 function addMentions(text: string, into: Set<string>): void {
-  for (const word of text.match(DOTTED) ?? []) {
+  for (const word of text.toLowerCase().match(DOTTED) ?? []) {
     const parts = word.split(".");
     for (let i = 0; i + 1 < parts.length; i++) {
       if (parts[i] !== "zone") into.add(`${parts[i]}.${parts[i + 1]}`);
@@ -106,7 +112,10 @@ export function collectReach(node: unknown, reach: Reach = emptyReach()): Reach 
 
   for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
     if (key === "entity_id") {
-      for (const id of entityIdsIn(value)) (isTemplate(id) ? reach.templated : reach.named).add(id);
+      for (const id of entityIdsIn(value)) {
+        if (isTemplate(id)) reach.templated.add(id);
+        else reach.named.add(id.toLowerCase());
+      }
     } else if ((ENTITY_LIST_KEYS as readonly string[]).includes(key)) {
       for (const id of listedEntities(value)) {
         (isTemplate(id) ? reach.templated : reach.named).add(id);
