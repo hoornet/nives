@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.8.2
+
+- **Automations Nives writes for you now stay within what you have exposed to Assist.** Since 2.7.0 Nives reads and controls only the entities you have exposed, and the automations it writes now follow the same rule: what an automation watches and what it controls must be exposed. If an automation you ask for needs something you have not exposed, Nives tells you before it shows you the automation to confirm, so you can expose it and ask again. It names devices one by one rather than selecting a whole room or device in one go. Scenes and groups Nives sets up for you follow the same rule. Automations you wrote yourself are left as they are, and Nives can still rename or retime them. Turning off **Limit Nives to exposed entities** lifts the limit here too. Server 0.17.2.
+
 ## 2.8.1
 
 - **Mistral AI is now a Bring Your Own Key provider.** Choose `mistral` as the Provider and paste a key from console.mistral.ai. The Model is optional: left empty, Nives uses `mistral-small-latest`. Use a Mistral model that supports function calling, for example Mistral Small or Medium, or Ministral. Two things to know: on Mistral, **Thinking Effort** works as `none` only for now, and any other value is left out, with a line in the add-on log saying so; and as with every Bring Your Own Key provider, your requests go straight from your Home Assistant to Mistral. The documentation has a short Mistral section with the models and the known limitations. Thanks to @Blend0963 for the request (#104). Server 0.17.1.

@@ -101,8 +101,9 @@ configuration:
       On by default. Nives can read and control only the entities you have
       exposed to Assist (Settings, Voice assistants, Expose), just like Home
       Assistant's own assistant. An exposed group still controls all of its
-      members. Something you expose while Nives is running is picked up within
-      30 minutes, or straight away after a restart. Turn this off to let Nives
+      members. The automations Nives writes for you follow the same limit.
+      Something you expose while Nives is running is picked up within 30
+      minutes, or straight away after a restart. Turn this off to let Nives
       reach every entity in the house again.
   layout_domains:
     name: Room map entity types

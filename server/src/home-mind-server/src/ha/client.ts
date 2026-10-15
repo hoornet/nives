@@ -1,5 +1,14 @@
 import type { Config } from "../config.js";
 import { AssistExposure, notExposedMessage } from "./exposure.js";
+import {
+  ENTITY_LIST_KEYS,
+  INDIRECT_TARGETS,
+  collectReach,
+  emptyReach,
+  entityIdsIn,
+  listedEntities,
+  reachKeys,
+} from "./reach.js";
 
 export interface EntityState {
   entity_id: string;
@@ -56,19 +65,6 @@ export interface ServiceCallWithResponse {
   changed_states: EntityState[];
   service_response: unknown;
 }
-
-/** The entity IDs a service call targets; HA accepts one, a list, or "a, b". */
-function targetedEntities(target: unknown): string[] {
-  const ids = typeof target === "string" ? [target] : Array.isArray(target) ? target : [];
-  return ids
-    .filter((t): t is string => typeof t === "string")
-    .flatMap((t) => t.split(","))
-    .map((t) => t.trim())
-    .filter((t) => t !== "");
-}
-
-/** Targets that select entities indirectly, which the exposure list cannot vet. */
-const INDIRECT_TARGETS = ["area_id", "device_id", "floor_id", "label_id"] as const;
 
 /** Lifecycle services of the script domain; any other `script.X` runs script X. */
 const SCRIPT_LIFECYCLE = new Set(["turn_on", "turn_off", "toggle", "reload"]);
@@ -148,10 +144,11 @@ export class HomeAssistantClient {
    * Refuses a service call that would reach past the exposure list.
    *
    * Named entities are checked one by one, including those in a nested
-   * `target`. Area, device, floor and label targets would have to be resolved
-   * to know what they hit, so while the list has an opinion they are refused
-   * and the model is told to name entities. A call with no target touches no
-   * entity, except `script.<name>`, which runs that script.
+   * `target` and the entity maps and lists that scenes and groups take
+   * (`ENTITY_LIST_KEYS`). Area, device, floor and label targets would have to
+   * be resolved to know what they hit, so while the list has an opinion they
+   * are refused and the model is told to name entities. A call with no target
+   * touches no entity, except `script.<name>`, which runs that script.
    */
   private async requireExposedTargets(
     domain: string,
@@ -172,7 +169,11 @@ export class HomeAssistantClient {
           `assistant may be controlled. Call the service with the exposed entity_ids instead.`
       );
     }
-    const ids = [...targetedEntities(payload.entity_id), ...targetedEntities(nested.entity_id)];
+    const ids = [
+      ...entityIdsIn(payload.entity_id),
+      ...entityIdsIn(nested.entity_id),
+      ...ENTITY_LIST_KEYS.flatMap((k) => listedEntities(payload[k])),
+    ];
     if (ids.includes("all")) {
       throw new Error(
         `entity_id "all" is not available to you: it reaches entities the user has not exposed. ` +
@@ -181,6 +182,72 @@ export class HomeAssistantClient {
     }
     if (domain === "script" && !SCRIPT_LIFECYCLE.has(service)) ids.push(`script.${service}`);
     await this.requireExposed(...ids);
+  }
+
+  /**
+   * Refuses an automation that would reach past the exposure list.
+   *
+   * The same bound as a service call, over everything the triggers, conditions
+   * and actions name (see `collectReach`): named entities must be exposed;
+   * area, device, floor and label selectors and templated entity ids cannot be
+   * vetted, so they are refused while the list has an opinion; and an
+   * entity-shaped word anywhere else (a template, `at:`, `action: script.x`)
+   * is checked when an entity by that id exists.
+   *
+   * @param current The stored config of the automation being updated. What a
+   *   section already named is left alone when that section is rewritten: the
+   *   user wrote it, not the assistant, and refusing it would stop the
+   *   assistant from renaming or retiming automations the user made by hand.
+   *   Only reach that is new to the section is checked, so an entity the
+   *   automation merely watched cannot be moved into an action that drives it.
+   */
+  async requireExposedAutomation(
+    sections: Partial<Pick<AutomationConfig, "trigger" | "condition" | "action">>,
+    current?: Record<string, unknown>
+  ): Promise<void> {
+    if (!this.exposure || (await this.exposure.list()) === null) return;
+    const pairs: [unknown, unknown][] = [
+      [sections.trigger, current?.trigger ?? current?.triggers],
+      [sections.condition, current?.condition ?? current?.conditions],
+      [sections.action, current?.action ?? current?.actions],
+    ];
+    const reach = emptyReach();
+    for (const [next, before] of pairs) {
+      if (next === undefined) continue;
+      const known = reachKeys(collectReach(before));
+      const found = collectReach(next);
+      for (const kind of ["named", "indirect", "templated", "mentioned"] as const) {
+        for (const item of found[kind]) if (!known.has(item)) reach[kind].add(item);
+      }
+    }
+
+    const [indirect] = reach.indirect;
+    if (indirect) {
+      const key = indirect.slice(0, indirect.indexOf("="));
+      throw new Error(
+        `Selecting by ${key} is not available to you in an automation: only entities the user ` +
+          `exposed to the assistant may be used. Name the exposed entity_ids instead ` +
+          `(a state trigger rather than a device trigger).`
+      );
+    }
+    const [templated] = reach.templated;
+    if (templated) {
+      throw new Error(
+        `The templated entity_id ${JSON.stringify(templated)} is not available to you: it cannot ` +
+          `be checked against what the user exposed. Name the exposed entity_ids instead.`
+      );
+    }
+    if (reach.named.has("all")) {
+      throw new Error(
+        `entity_id "all" is not available to you: it reaches entities the user has not exposed. ` +
+          `Name the exposed entity_ids instead.`
+      );
+    }
+    await this.requireExposed(...reach.named);
+    if (reach.mentioned.size > 0) {
+      const existing = new Set((await this.getAllStatesCached()).map((s) => s.entity_id));
+      await this.requireExposed(...[...reach.mentioned].filter((id) => existing.has(id)));
+    }
   }
 
   /**
@@ -528,12 +595,11 @@ export class HomeAssistantClient {
       .replace(/^_+|_+$/g, "");
   }
 
-  // Automations are NOT bounded by the Assist exposure list yet. The
-  // create/update payloads the assistant writes can name any entity, and
-  // listAutomations() reads every automation, exposed or not: automations are
+  // What an automation may name is bounded by the exposure list
+  // (requireExposedAutomation), but the automations themselves are not:
+  // listAutomations() reads every automation, exposed or not. Automations are
   // rarely exposed, and filtering them would leave the assistant unable to
-  // find, change or delete the ones it just made. Bounding what an automation
-  // may target is a separate change.
+  // find, change or delete the ones it just made.
 
   /**
    * Create (or overwrite) a Home Assistant automation via the config API, then
@@ -552,6 +618,8 @@ export class HomeAssistantClient {
       condition: this.toArray(config.condition),
       action: this.normalizeActions(this.toArray(config.action)),
     };
+
+    await this.requireExposedAutomation(body);
 
     // Reject actions that reference non-existent services (e.g. a guessed
     // notify.mobile_app_* placeholder) before writing a broken automation.
@@ -651,6 +719,7 @@ export class HomeAssistantClient {
       ),
     };
 
+    await this.requireExposedAutomation(changes, current);
     await this.validateActionServices(merged.action);
 
     await this.fetch(`/api/config/automation/config/${id}`, {
