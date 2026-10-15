@@ -477,6 +477,9 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
     { entity_id: "script.garage_door", state: "off", attributes: { friendly_name: "Garage door" } },
     { entity_id: "person.resident", state: "home", attributes: { friendly_name: "Resident" } },
     { entity_id: "zone.home", state: "1", attributes: { friendly_name: "Home" } },
+    { entity_id: "tts.nives_text_to_speech", state: "unknown", attributes: { friendly_name: "Nives Text-to-speech" } },
+    { entity_id: "media_player.living_room_speaker", state: "idle", attributes: { friendly_name: "Living room speaker" } },
+    { entity_id: "media_player.bedroom_speaker", state: "idle", attributes: { friendly_name: "Bedroom speaker" } },
   ];
 
   // Enough of the services catalog for automation writes to pass their own
@@ -527,9 +530,12 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       expect(found.map((s) => s.entity_id)).toEqual(["light.kitchen_table"]);
     });
 
-    it("get_entities returns only what the user exposed", async () => {
+    it("get_entities returns only what the user exposed, plus the voice engines", async () => {
       const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
-      expect((await client.getEntities()).map((s) => s.entity_id)).toEqual(["light.kitchen_table"]);
+      expect((await client.getEntities()).map((s) => s.entity_id)).toEqual([
+        "light.kitchen_table",
+        "tts.nives_text_to_speech",
+      ]);
       expect((await client.getEntities("light")).map((s) => s.entity_id)).toEqual([
         "light.kitchen_table",
       ]);
@@ -714,6 +720,38 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       expect(posted("scene/apply")).toBe(true);
     });
 
+    it("announces with any voice engine, but only on an exposed speaker", async () => {
+      const client = new HomeAssistantClient(
+        baseConfig,
+        exposing("light.kitchen_table", "media_player.living_room_speaker")
+      );
+      expect((await client.searchEntities("text-to-speech")).map((s) => s.entity_id)).toEqual([
+        "tts.nives_text_to_speech",
+      ]);
+      await client.callService("tts", "speak", undefined, {
+        entity_id: "tts.nives_text_to_speech",
+        media_player_entity_id: "media_player.living_room_speaker",
+        message: "Dober dan",
+      });
+      expect(posted("tts/speak")).toBe(true);
+      calls = [];
+
+      await expect(
+        client.callService("tts", "speak", undefined, {
+          entity_id: "tts.nives_text_to_speech",
+          media_player_entity_id: "media_player.bedroom_speaker",
+          message: "Dober dan",
+        })
+      ).rejects.toThrow(/media_player\.bedroom_speaker is not available/);
+      await expect(
+        client.callService("media_player", "join", "media_player.living_room_speaker", {
+          group_members: ["media_player.bedroom_speaker"],
+        })
+      ).rejects.toThrow(/media_player\.bedroom_speaker is not available/);
+      expect(posted("tts/speak")).toBe(false);
+      expect(posted("media_player/join")).toBe(false);
+    });
+
     it("passes a call with no target at all", async () => {
       const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
       await client.callService("notify", "notify", undefined, { message: "hi" });
@@ -863,6 +901,22 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
         trigger: at7,
         action: { service: "light.turn_on", target: { entity_id: "Light.Kitchen_Table" } },
       });
+    });
+
+    it("an announcement may use any voice engine, but only an exposed speaker", async () => {
+      const client = new HomeAssistantClient(
+        baseConfig,
+        exposing("light.kitchen_table", "media_player.living_room_speaker")
+      );
+      const announce = (speaker: string) => ({
+        action: "tts.speak",
+        target: { entity_id: "tts.nives_text_to_speech" },
+        data: { media_player_entity_id: speaker, message: "Dobro jutro" },
+      });
+      await client.requireExposedAutomation({ trigger: at7, action: announce("media_player.living_room_speaker") });
+      await expect(
+        client.requireExposedAutomation({ trigger: at7, action: announce("media_player.bedroom_speaker") })
+      ).rejects.toThrow(/media_player\.bedroom_speaker is not available/);
     });
 
     it("lets through words that only look like entities, and zones", async () => {

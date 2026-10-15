@@ -180,6 +180,25 @@ describe("AssistExposure", () => {
       "light.c",
     ]);
   });
+
+  it("always allows a voice engine, and keeps it when filtering", async () => {
+    // Home Assistant exposes no tts entity by default; an engine only speaks
+    // through a speaker, and the speaker is what gets checked.
+    const exposure = new AssistExposure(async () => set("light.a"));
+    expect(await exposure.allows("tts.nives_text_to_speech")).toBe(true);
+    expect(await exposure.allows("media_player.bedroom")).toBe(false);
+    const states = ["tts.nives_text_to_speech", "media_player.bedroom", "light.a"].map((entity_id) => ({
+      entity_id,
+      state: "on",
+      attributes: {},
+      last_changed: "",
+      last_updated: "",
+    }));
+    expect((await exposure.filter(states)).map((s) => s.entity_id)).toEqual([
+      "tts.nives_text_to_speech",
+      "light.a",
+    ]);
+  });
 });
 
 describe("notExposedMessage", () => {

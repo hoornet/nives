@@ -13,10 +13,19 @@
 /**
  * Data keys that carry entity ids besides `entity_id`: `scene.create` and
  * `scene.apply` take `entities` as a map keyed by entity id, `scene.create` takes
- * `snapshot_entities`, and `group.set` takes `entities`, `add_entities` and
- * `remove_entities` as lists.
+ * `snapshot_entities`, `group.set` takes `entities`, `add_entities` and
+ * `remove_entities` as lists, `tts.speak` names its speaker in
+ * `media_player_entity_id` (its `entity_id` is the voice engine), and
+ * `media_player.join` takes the speakers to group in `group_members`.
  */
-export const ENTITY_LIST_KEYS = ["entities", "snapshot_entities", "add_entities", "remove_entities"] as const;
+export const ENTITY_LIST_KEYS = [
+  "entities",
+  "snapshot_entities",
+  "add_entities",
+  "remove_entities",
+  "media_player_entity_id",
+  "group_members",
+] as const;
 
 /** Targets that select entities indirectly, which the exposure list cannot vet. */
 export const INDIRECT_TARGETS = ["area_id", "device_id", "floor_id", "label_id"] as const;

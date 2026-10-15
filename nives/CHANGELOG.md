@@ -2,6 +2,7 @@
 
 ## 2.8.3
 
+- **Announcements no longer need the voice exposed, only the speaker.** A spoken announcement names two things: the voice that speaks and the speaker it plays on. Home Assistant does not expose voices to Assist by default, so Nives now uses any voice, including its own, without asking you to expose it. The speaker still has to be exposed, whether you ask Nives to say something now or set up an automation that announces at a set time, and so does every speaker you ask Nives to group together.
 - **Entity names written with capital letters are checked against what you have exposed, too.** Home Assistant treats `Light.Hall` and `light.hall` as the same entity, and the exposure check from 2.8.2 now reads them the same way, in scenes, groups and the automations Nives writes for you. Server 0.17.3.
 
 ## 2.8.2
