@@ -124,6 +124,34 @@ function gateAutomationChange(
 }
 
 /**
+ * Holds an automation's triggers, conditions and actions to the exposure list
+ * before it is previewed. The preview is what the user says yes to, so a
+ * payload that will be refused has to be refused now: caught only when it is
+ * applied, it would fail after the user had agreed to it.
+ *
+ * Returned rather than thrown. A throw from a gated tool hands the user's
+ * confirmation back (see the catch in handleToolCall), so the corrected call
+ * would apply without the user ever seeing a preview of it.
+ *
+ * `current` reads the stored config of the automation being updated, which
+ * `requireExposedAutomation` needs to tell what is new.
+ */
+async function automationOutOfReach(
+  ha: HomeAssistantClient,
+  input: Record<string, unknown>,
+  current?: () => Promise<Record<string, unknown>>
+): Promise<string | undefined> {
+  const { trigger, condition, action } = input;
+  if (trigger === undefined && condition === undefined && action === undefined) return undefined;
+  try {
+    await ha.requireExposedAutomation({ trigger, condition, action }, await current?.());
+    return undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+/**
  * Normalize a timestamp to ensure it has timezone info.
  * If the timestamp lacks a Z suffix or ±HH:MM offset, append Z (UTC).
  */
@@ -210,6 +238,12 @@ export async function handleToolCall(
           break;
         }
 
+        const createRefusal = await automationOutOfReach(ha, input);
+        if (createRefusal) {
+          result = { error: createRefusal };
+          break;
+        }
+
         const gate = gateAutomationChange(ctx, "create_automation", input);
         if (!gate.proceed) {
           result = gate.response;
@@ -287,11 +321,8 @@ export async function handleToolCall(
           result = { error: "update_automation requires an 'entity_id'." };
           break;
         }
-        const gate = gateAutomationChange(ctx, "update_automation", input);
-        if (!gate.proceed) {
-          result = gate.response;
-          break;
-        }
+        // Found before the preview, so the exposure check below can compare
+        // against what the automation already names.
         const automations = await ha.listAutomations();
         const target = automations.find((a) => a.entity_id === entityId);
         if (!target) {
@@ -303,6 +334,18 @@ export async function handleToolCall(
           result = {
             error: `Automation "${entityId}" can't be edited via the API — it isn't stored in automations.yaml (UI/YAML-managed).`,
           };
+          break;
+        }
+        const updateRefusal = await automationOutOfReach(ha, input, () =>
+          ha.getAutomationConfig(configId)
+        );
+        if (updateRefusal) {
+          result = { error: updateRefusal };
+          break;
+        }
+        const gate = gateAutomationChange(ctx, "update_automation", input);
+        if (!gate.proceed) {
+          result = gate.response;
           break;
         }
         // Overlay only the fields the caller actually provided.

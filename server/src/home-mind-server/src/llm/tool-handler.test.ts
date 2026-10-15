@@ -41,6 +41,8 @@ describe("handleToolCall", () => {
       listServices: vi.fn().mockResolvedValue({
         notify: ["mobile_app_johns_iphone", "persistent_notification"],
       }),
+      requireExposedAutomation: vi.fn().mockResolvedValue(undefined),
+      getAutomationConfig: vi.fn().mockResolvedValue({ id: "1700000000000" }),
     } as unknown as HomeAssistantClient;
   });
 
@@ -244,6 +246,43 @@ describe("handleToolCall", () => {
     });
   });
 
+  it("checks an update's new sections against the automation's stored config", async () => {
+    await handleToolCall(ha, "update_automation", {
+      entity_id: "automation.living_room_light_off_at_23_00",
+      trigger: { platform: "time", at: "22:00:00" },
+    });
+
+    expect(ha.getAutomationConfig).toHaveBeenCalledWith("1700000000000");
+    expect(ha.requireExposedAutomation).toHaveBeenCalledWith(
+      { trigger: { platform: "time", at: "22:00:00" }, condition: undefined, action: undefined },
+      { id: "1700000000000" }
+    );
+  });
+
+  it("does not read the stored config for a rename, which names no entity", async () => {
+    await handleToolCall(ha, "update_automation", {
+      entity_id: "automation.living_room_light_off_at_23_00",
+      alias: "Living room light off at 22:00",
+    });
+
+    expect(ha.requireExposedAutomation).not.toHaveBeenCalled();
+    expect(ha.getAutomationConfig).not.toHaveBeenCalled();
+    expect(ha.updateAutomation).toHaveBeenCalled();
+  });
+
+  it("refuses an update that reaches past the exposure list, without writing it", async () => {
+    vi.mocked(ha.requireExposedAutomation).mockRejectedValueOnce(
+      new Error(notExposedMessage("lock.front_door"))
+    );
+    const result = await handleToolCall(ha, "update_automation", {
+      entity_id: "automation.living_room_light_off_at_23_00",
+      action: { service: "lock.unlock", target: { entity_id: "lock.front_door" } },
+    });
+
+    expect(result).toEqual({ error: notExposedMessage("lock.front_door") });
+    expect(ha.updateAutomation).not.toHaveBeenCalled();
+  });
+
   it("update_automation requires an entity_id", async () => {
     const result = await handleToolCall(ha, "update_automation", {
       alias: "Whatever",
@@ -353,6 +392,7 @@ describe("handleToolCall confirmation gate", () => {
         { entity_id: "automation.x", state: "on", attributes: { id: "9", friendly_name: "Nives: X" } },
       ]),
       deleteAutomation: vi.fn().mockResolvedValue(undefined),
+      requireExposedAutomation: vi.fn().mockResolvedValue(undefined),
     } as unknown as HomeAssistantClient;
   });
 
@@ -419,6 +459,32 @@ describe("handleToolCall confirmation gate", () => {
     expect(retry.confirmation_required).toBeUndefined();
     expect(retry.success).toBe(true);
     expect(ha.createAutomation).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses an out-of-reach create at the preview, and leaves no confirmation behind", async () => {
+    // The user must never be asked to approve a payload that is then refused,
+    // and a refusal must not count as a yes: the corrected payload is previewed.
+    vi.mocked(ha.requireExposedAutomation).mockRejectedValueOnce(
+      new Error(notExposedMessage("lock.front_door"))
+    );
+    const unlock = {
+      ...createInput(),
+      action: { service: "lock.unlock", target: { entity_id: "lock.front_door" } },
+    };
+    const refused = (await handleToolCall(ha, "create_automation", unlock, ctx("turn-A"))) as {
+      error?: string;
+      message?: string;
+      confirmation_required?: boolean;
+    };
+    expect(refused.error).toBe(notExposedMessage("lock.front_door"));
+    expect(refused.message).toBeUndefined();
+    expect(refused.confirmation_required).toBeUndefined();
+
+    const fixed = (await handleToolCall(ha, "create_automation", createInput(), ctx("turn-B"))) as {
+      confirmation_required?: boolean;
+    };
+    expect(fixed.confirmation_required).toBe(true);
+    expect(ha.createAutomation).not.toHaveBeenCalled();
   });
 
   it("commits a REFORMATTED create on a later-turn re-call (payload shape is not compared)", async () => {
@@ -984,6 +1050,7 @@ describe("handleToolCall forget_memory", () => {
   it("coexists with a pending automation preview without cross-firing", async () => {
     const gateHa = {
       createAutomation: vi.fn().mockResolvedValue({ id: "1", alias: "Nives: X", entity_id: "automation.x" }),
+      requireExposedAutomation: vi.fn().mockResolvedValue(undefined),
     } as unknown as HomeAssistantClient;
     const auto = { alias: "X", trigger: { platform: "time", at: "12:00" }, action: { service: "notify.foo" } };
 
