@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.8.4
+
+- **Expose something and ask again, and it works straight away.** When Nives says it cannot use something because you have not exposed it to Assist, the natural next step is to expose it and ask again. Nives used to check your Expose list only every 30 minutes, so the second request could be refused too. It now checks the list again before saying no, and keeps it fresh to the minute, so the second request goes through. The room map still catches up within 30 minutes. Server 0.17.4.
+
 ## 2.8.3
 
 - **Announcements no longer need the voice exposed, only the speaker.** A spoken announcement names two things: the voice that speaks and the speaker it plays on. Home Assistant does not expose voices to Assist by default, so Nives now uses any voice, including its own, without asking you to expose it. The speaker still has to be exposed, whether you ask Nives to say something now or set up an automation that announces at a set time, and so does every speaker you ask Nives to group together.
