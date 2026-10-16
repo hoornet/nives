@@ -20,6 +20,22 @@ import type { EntityState } from "./client.js";
  * failed websocket call that left the assistant unable to see a single device
  * would be far worse than the gap it is meant to close.
  */
+/**
+ * Domains the assistant may use whether or not they are exposed.
+ *
+ * A voice engine (`tts.*`) is not a device in the house: it turns text into
+ * sound and can only be heard through a speaker, and the speaker is checked
+ * (`media_player_entity_id`, see `ENTITY_LIST_KEYS`). Home Assistant does not
+ * expose engines by default, so without this an announcement, including one
+ * in Nives's own voice, would need the user to expose a voice engine to
+ * Assist, which nobody thinks of as hiding or sharing a device.
+ */
+const ALWAYS_ALLOWED_DOMAINS = ["tts"];
+
+function alwaysAllowed(entityId: string): boolean {
+  return ALWAYS_ALLOWED_DOMAINS.some((d) => entityId.startsWith(`${d}.`));
+}
+
 export class AssistExposure {
   private entities: Set<string> | null = null;
   /** When the cached answer (a list, or "no opinion") stops being good. */
@@ -84,15 +100,19 @@ export class AssistExposure {
 
   /** Whether the assistant may see and act on this entity. */
   async allows(entityId: string): Promise<boolean> {
+    if (alwaysAllowed(entityId)) return true;
     const exposed = await this.list();
     return exposed === null || exposed.has(entityId);
   }
 
-  /** The subset of `states` the assistant may see, in the order given. */
+  /**
+   * The subset of `states` the assistant may see, in the order given. Voice
+   * engines stay in, so the assistant can find the one to announce with.
+   */
   async filter(states: EntityState[]): Promise<EntityState[]> {
     const exposed = await this.list();
     if (exposed === null) return states;
-    return states.filter((s) => exposed.has(s.entity_id));
+    return states.filter((s) => exposed.has(s.entity_id) || alwaysAllowed(s.entity_id));
   }
 }
 
