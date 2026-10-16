@@ -103,9 +103,8 @@ configuration:
       Assistant's own assistant. An exposed group still controls all of its
       members. Voices never need exposing, but the speaker an announcement
       plays on does. The automations Nives writes for you follow the same limit.
-      Something you expose while Nives is running is picked up within 30
-      minutes, or straight away after a restart. Turn this off to let Nives
-      reach every entity in the house again.
+      Something you expose can be used straight away. Turn this off to let
+      Nives reach every entity in the house again.
   layout_domains:
     name: Room map entity types
     description: >-

@@ -58,18 +58,55 @@ describe("AssistExposure", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it("defaults the TTL to the 30-minute topology scan interval", async () => {
+  it("defaults the TTL to one minute", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fetcher = vi.fn(async () => set("light.a"));
     const exposure = new AssistExposure(fetcher);
 
     await exposure.list();
-    vi.setSystemTime(Date.now() + 29 * 60 * 1000);
+    vi.setSystemTime(Date.now() + 50 * 1000);
     await exposure.list();
     expect(fetcher).toHaveBeenCalledTimes(1);
 
-    vi.setSystemTime(Date.now() + 2 * 60 * 1000);
+    vi.setSystemTime(Date.now() + 20 * 1000);
     await exposure.list();
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-reads the list before refusing, so 'expose it and ask again' works at once", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let exposed = set("light.a");
+    const fetcher = vi.fn(async () => exposed);
+    const exposure = new AssistExposure(fetcher, 60 * 60 * 1000); // a TTL that would never expire here
+
+    expect(await exposure.allows("lock.front_door")).toBe(false);
+    expect(fetcher).toHaveBeenCalledTimes(1); // just read, so no second read
+
+    // The user exposes it and asks again a little later.
+    exposed = set("light.a", "lock.front_door");
+    vi.setSystemTime(Date.now() + 15 * 1000);
+    expect(await exposure.allows("lock.front_door")).toBe(true);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    // and the fresh list is what everyone reads from now on
+    expect((await exposure.list())?.has("lock.front_door")).toBe(true);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-reads before refusing at most once per pacing window", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetcher = vi.fn(async () => set("light.a"));
+    const exposure = new AssistExposure(fetcher, 60 * 60 * 1000);
+
+    await exposure.list();
+    vi.setSystemTime(Date.now() + 15 * 1000);
+    // Several refusals in one turn: one re-read between them.
+    expect(await exposure.allows("lock.front_door")).toBe(false);
+    expect(await exposure.allows("switch.garage")).toBe(false);
+    expect(await exposure.allows("lock.back_door")).toBe(false);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    // An exposed entity never triggers one.
+    vi.setSystemTime(Date.now() + 15 * 1000);
+    expect(await exposure.allows("light.a")).toBe(true);
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
@@ -207,5 +244,7 @@ describe("notExposedMessage", () => {
 
     expect(message).toContain("light.kitchen_table_1 is not available to you");
     expect(message).toContain("Do not retry with a different spelling");
+    // The list is re-read before a refusal, so the user can expose it and ask again at once.
+    expect(message).toContain("once they expose it, asking again will work");
   });
 });
