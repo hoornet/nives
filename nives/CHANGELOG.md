@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.8.5
+
+- The libraries Nives uses to reach the model providers and to run its own web server are updated. Before release, a streamed reply with a device lookup, the add-on's own request handling, and a spoken Slovene reply were each checked with real requests, not only with the automated tests. Server 0.17.5.
+
 ## 2.8.4
 
 - **Expose something and ask again, and it works straight away.** When Nives says it cannot use something because you have not exposed it to Assist, the natural next step is to expose it and ask again. Nives used to check your Expose list only every 30 minutes, so the second request could be refused too. It now checks the list again before saying no, and keeps it fresh to the minute, so the second request goes through. The room map still catches up within 30 minutes. Server 0.17.4.
