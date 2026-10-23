@@ -32,7 +32,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: server/src/home-mind-server/package-lock.json
 
@@ -99,6 +99,6 @@ jobs:
           build-args: |
             S6_OVERLAY_VERSION=3.2.0.2
             SHODH_VERSION=v0.2.0
-            NODE_MAJOR=22
+            NODE_MAJOR=24
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
