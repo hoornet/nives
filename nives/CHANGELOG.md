@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.7
+
+- **Runs on Node.js 24.** Node.js 22 gets security fixes until April 2027 and Node.js 24 until April 2028, so Nives moves now rather than in a hurry later.
+- **Compressed requests are refused.** Nives no longer unpacks a compressed request body; it answers with an error instead. Home Assistant never sends one, so nothing changes for you, and a flaw like the one fixed in 2.8.6 can no longer be reached through a request body.
+- The libraries Nives uses to reach the model providers are updated. Before release, a spoken Slovene question was transcribed, answered with a device lookup in a streamed reply, and a Slovene reply was spoken, each with real requests on Node.js 24, not only with the automated tests. No settings to change. Server 0.17.6.
+
 ## 2.8.6
 
 - **Security update: Node.js 22.23.4.** Nives now runs on the October 21 Node.js security release. The most serious fix is in how Node.js unpacks Brotli-compressed data, which a crafted request to the add-on could have used to run code inside it. The release also updates the certificates Node.js trusts, following the eMudhra certificate authority compromise. Please update; there are no settings to change. Server 0.17.5.
