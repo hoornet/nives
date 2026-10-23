@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.8.6
+
+- **Security update: Node.js 22.23.4.** Nives now runs on the October 21 Node.js security release. The most serious fix is in how Node.js unpacks Brotli-compressed data, which a crafted request to the add-on could have used to run code inside it. The release also updates the certificates Node.js trusts, following the eMudhra certificate authority compromise. Please update; there are no settings to change. Server 0.17.5.
+
 ## 2.8.5
 
 - The libraries Nives uses to reach the model providers and to run its own web server are updated. Before release, a streamed reply with a device lookup, the add-on's own request handling, and a spoken Slovene reply were each checked with real requests, not only with the automated tests. Server 0.17.5.

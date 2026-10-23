@@ -78,6 +78,13 @@ FROM ubuntu:24.04
 
 ARG S6_OVERLAY_VERSION=3.2.0.2
 ARG NODE_MAJOR=22
+# Lowest Node release this image may ship. NodeSource serves the newest
+# ${NODE_MAJOR}.x, but CI reuses the cached install layer until its
+# instruction changes, so a rebuild alone keeps the old Node (2.8.5 shipped
+# 22.23.3, built hours before 22.23.4 fixed CVE-2026-111497). Raising this
+# after a Node security release rebuilds the layer, and the build fails if
+# the mirror has not caught up yet.
+ARG NODE_MIN_VERSION=22.23.4
 
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
@@ -104,7 +111,10 @@ RUN ARCH=$(uname -m) \
 # Install Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && NODE_VERSION=$(node -p process.versions.node) \
+    && echo "Node.js ${NODE_VERSION} (minimum ${NODE_MIN_VERSION})" \
+    && dpkg --compare-versions "${NODE_VERSION}" ge "${NODE_MIN_VERSION}"
 
 # Install bashio (HA add-on helper library)
 RUN curl -fsSL https://github.com/hassio-addons/bashio/archive/refs/tags/v0.16.2.tar.gz \
