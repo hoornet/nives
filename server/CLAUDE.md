@@ -182,6 +182,7 @@ Optional bearer token auth via `API_TOKEN` env var. When set, all endpoints exce
 - **Health endpoint** (`/api/health`) is always public, even when auth is enabled
 - **Timing-safe comparison** prevents timing attacks on the token
 - **HACS config flow** validates tokens against `/api/memory/{userId}` (not `/api/health`, since health bypasses auth)
+- **Compressed request bodies are refused with 415** (`api/json-body.ts`, `inflate: false`). `express.json()` runs before the token check, so whatever it does to a body, an unauthenticated caller can make it do; at body-parser's default that included decompressing gzip, deflate and Brotli (CVE-2026-111497 was in Node's Brotli decoder). Don't drop the option as redundant once Node is patched; `json-body.test.ts` proves the default would decode.
 
 ## API Endpoints
 
