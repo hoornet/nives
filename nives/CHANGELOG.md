@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.8
+
+- **Security housekeeping in the libraries Nives uses to read incoming requests.** Fixes were published last week for three of them. Two could let a crafted request stop the add-on, and one could use a lot of memory on a very large request. The way Nives uses them, none of the three applies since 2.8.7, so on 2.8.7 this is housekeeping. If you are still on 2.8.6 or older, this update closes a way for a crafted request to stop the add-on.
+- The setup step that adds Nives to Home Assistant now handles missing add-on details explicitly. Home Assistant will ask for one restart to load the updated integration. No settings to change. Server 0.17.7.
+
 ## 2.8.7
 
 - **Runs on Node.js 24.** Node.js 22 gets security fixes until April 2027 and Node.js 24 until April 2028, so Nives moves now rather than in a hurry later.

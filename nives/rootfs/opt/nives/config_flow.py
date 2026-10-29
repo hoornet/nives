@@ -132,7 +132,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Confirm Nives add-on discovery."""
         if user_input is not None:
-            assert self._hassio_discovery is not None
+            # Only reachable after async_step_hassio stored the discovery, but an
+            # assert would vanish under python -O; abort instead of a KeyError.
+            if self._hassio_discovery is None:
+                return self.async_abort(reason="cannot_connect")
             host = self._hassio_discovery["host"]
             port = self._hassio_discovery["port"]
             api_token = self._hassio_discovery.get("api_token", "")
