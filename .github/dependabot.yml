@@ -31,6 +31,8 @@ updates:
         versions: ["8.11.x"]
 
   # GitHub Actions used by the multi-arch build / CI / GHCR publish workflows.
+  # They are pinned to commit SHAs with the version as a trailing comment (a tag
+  # can be moved); Dependabot updates the SHA and the comment together.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

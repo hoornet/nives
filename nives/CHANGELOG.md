@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.8.9
+
+- **The add-on's image now checks everything it downloads while it is built.** Each file it fetches (the memory engine, its language model, the process supervisor and a helper library) is compared against a known fingerprint before it is used, and Node.js now comes from NodeSource's signed package repository instead of a setup script. A tampered or swapped download stops the build instead of reaching your Home Assistant. Nothing changes in how Nives behaves. Home Assistant will ask for one restart, as with every update. No settings to change. Server 0.17.8.
+
 ## 2.8.8
 
 - **Security housekeeping in the libraries Nives uses to read incoming requests.** Fixes were published last week for three of them. Two could let a crafted request stop the add-on, and one could use a lot of memory on a very large request. The way Nives uses them, none of the three applies since 2.8.7, so on 2.8.7 this is housekeeping. If you are still on 2.8.6 or older, this update closes a way for a crafted request to stop the add-on.

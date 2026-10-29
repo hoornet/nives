@@ -1,6 +1,6 @@
 {
   "name": "@home-mind/server",
-  "version": "0.17.7",
+  "version": "0.17.8",
   "description": "Home Mind API server - AI assistant with cognitive memory for Home Assistant",
   "type": "module",
   "main": "dist/index.js",
@@ -39,7 +39,7 @@
     "vitest": "^5.0.1"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "author": "Jure Sršen <44338+hoornet@users.noreply.github.com>",
   "license": "AGPL-3.0",
