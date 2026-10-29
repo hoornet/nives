@@ -220,3 +220,5 @@ After the version bump is pushed, in order:
 4. `gh release create v<version> --title "…" --notes-file …` — notes written for users, in the CHANGELOG voice, not a diff summary.
 
 Docs-only commits (README, assets) don't need a version bump — no add-on content changed, and bumping would push a pointless update to every user. CI still rebuilds, which is harmless.
+
+**A build that fails on a `sha256sum -c` line is the download check working, not a CI flake (since 2.8.9).** Every file `nives/Dockerfile` fetches is pinned by SHA-256 in an `ARG` next to its version. The expected causes are a version bumped without its hash, NodeSource rotating its repository key (`NODESOURCE_KEY_SHA256`, fingerprint `6F71F525282841EEDAF851B42F59B5F99B1BE0B4`), or GitHub regenerating the bashio tag archive. Before changing a hash, get the new value from the publisher: GitHub's release-asset `digest`, the project's `.sha256` file, or Hugging Face's LFS hash. A key that changed with no announcement is the case the check exists for, so don't paste in whatever the failed build computed.
