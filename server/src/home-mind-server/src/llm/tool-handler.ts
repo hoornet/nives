@@ -136,6 +136,33 @@ function gateAutomationChange(
  * `current` reads the stored config of the automation being updated, which
  * `requireExposedAutomation` needs to tell what is new.
  */
+/**
+ * Some models send these fields as a JSON string. Home Assistant can't use a
+ * string and the exposure check can't read one, so parse it before either sees
+ * it. Works on a copy: the caller's input is replayed to the model in later turns.
+ */
+function parseAutomationFields(
+  input: Record<string, unknown>
+): { input: Record<string, unknown> } | { error: string } {
+  const parsed = { ...input };
+  for (const key of ["trigger", "condition", "action"]) {
+    const value = parsed[key];
+    if (typeof value !== "string") continue;
+    if (!value.trim()) {
+      delete parsed[key];
+      continue;
+    }
+    try {
+      const data: unknown = JSON.parse(value);
+      if (typeof data !== "object" || data === null) throw new Error("not structured data");
+      parsed[key] = data;
+    } catch {
+      return { error: `'${key}' must be a list of objects, not text. Send it again as structured data.` };
+    }
+  }
+  return { input: parsed };
+}
+
 async function automationOutOfReach(
   ha: HomeAssistantClient,
   input: Record<string, unknown>,
@@ -224,6 +251,12 @@ export async function handleToolCall(
       }
 
       case "create_automation": {
+        const parsedFields = parseAutomationFields(input);
+        if ("error" in parsedFields) {
+          result = parsedFields;
+          break;
+        }
+        input = parsedFields.input;
         const alias = (input.alias as string | undefined)?.trim();
         if (!alias) {
           result = { error: "create_automation requires an 'alias'." };
@@ -316,6 +349,12 @@ export async function handleToolCall(
       }
 
       case "update_automation": {
+        const parsedFields = parseAutomationFields(input);
+        if ("error" in parsedFields) {
+          result = parsedFields;
+          break;
+        }
+        input = parsedFields.input;
         const entityId = (input.entity_id as string | undefined)?.trim();
         if (!entityId) {
           result = { error: "update_automation requires an 'entity_id'." };

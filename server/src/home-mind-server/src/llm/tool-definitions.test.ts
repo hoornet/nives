@@ -119,3 +119,19 @@ describe("gated tools describe the preview-first flow, not a pre-call question",
     });
   }
 });
+
+describe("automation field schemas", () => {
+  // Declared as "object" these left a model holding a list no valid way to send
+  // it, and Haiku 5.5 on the Anthropic API sent JSON text instead.
+  for (const name of ["create_automation", "update_automation"]) {
+    for (const field of ["trigger", "condition", "action"]) {
+      it(`${name}.${field} is an array of objects`, () => {
+        const tool = TOOL_DEFINITIONS.find((t) => t.name === name)!;
+        expect(tool.parameters.properties[field]).toMatchObject({
+          type: "array",
+          items: { type: "object" },
+        });
+      });
+    }
+  }
+});

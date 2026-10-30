@@ -139,6 +139,45 @@ describe("handleToolCall", () => {
     });
   });
 
+  it("parses automation fields sent as JSON text, leaving the model's input alone", async () => {
+    const input = {
+      alias: "Kitchen lights at 20:00",
+      trigger: '[{"platform":"time","at":"20:00:00"}]',
+      condition: "",
+      action: '[{"service":"light.turn_on","target":{"entity_id":"light.kitchen"}}]',
+    };
+    const original = { ...input };
+
+    await handleToolCall(ha, "create_automation", input);
+
+    const call = (ha.createAutomation as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(call.trigger).toEqual([{ platform: "time", at: "20:00:00" }]);
+    expect(call.condition).toBeUndefined();
+    expect(call.action).toEqual([{ service: "light.turn_on", target: { entity_id: "light.kitchen" } }]);
+    expect(input).toEqual(original);
+  });
+
+  it("parses automation fields sent as JSON text on update", async () => {
+    await handleToolCall(ha, "update_automation", {
+      entity_id: "automation.living_room_light_off_at_23_00",
+      condition: '[{"condition":"state","entity_id":"person.alex","state":"home"}]',
+    });
+
+    const changes = (ha.updateAutomation as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(changes.condition).toEqual([{ condition: "state", entity_id: "person.alex", state: "home" }]);
+  });
+
+  it("refuses an automation field that is text but not JSON", async () => {
+    const result = await handleToolCall(ha, "create_automation", {
+      alias: "Kitchen lights at 20:00",
+      trigger: "every day at 20:00",
+      action: [{ service: "light.turn_on" }],
+    });
+
+    expect(result).toMatchObject({ error: expect.stringContaining("'trigger' must be a list") });
+    expect(ha.createAutomation).not.toHaveBeenCalled();
+  });
+
   it("does not double-prefix an alias that already starts with Nives:", async () => {
     await handleToolCall(ha, "create_automation", {
       alias: "Nives: Porch at sunset",

@@ -142,17 +142,20 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             "Human-readable name for the automation (e.g. 'Porch light at sunset'). A 'Nives: ' prefix is added automatically — do not include it yourself.",
         },
         trigger: {
-          type: "object",
+          type: "array",
+          items: { type: "object" },
           description:
-            "The trigger that starts the automation, as an HA trigger object or array of objects. Examples: time → {\"platform\":\"time\",\"at\":\"23:00:00\"}; sun → {\"platform\":\"sun\",\"event\":\"sunset\",\"offset\":\"-00:15:00\"}; state → {\"platform\":\"state\",\"entity_id\":\"binary_sensor.front_door\",\"to\":\"on\"}; numeric → {\"platform\":\"numeric_state\",\"entity_id\":\"sensor.temperature\",\"above\":25}. A time trigger's \"at\" is a time of day ONLY (HH:MM:SS), never a date; for a one-off on a particular day keep \"at\" as the time and add a template condition on the date, e.g. {\"condition\":\"template\",\"value_template\":\"{{ now().strftime('%Y-%m-%d') == '2026-09-05' }}\"}.",
+            "The trigger that starts the automation, as an array of HA trigger objects. Examples: time → {\"platform\":\"time\",\"at\":\"23:00:00\"}; sun → {\"platform\":\"sun\",\"event\":\"sunset\",\"offset\":\"-00:15:00\"}; state → {\"platform\":\"state\",\"entity_id\":\"binary_sensor.front_door\",\"to\":\"on\"}; numeric → {\"platform\":\"numeric_state\",\"entity_id\":\"sensor.temperature\",\"above\":25}. A time trigger's \"at\" is a time of day ONLY (HH:MM:SS), never a date; for a one-off on a particular day keep \"at\" as the time and add a template condition on the date, e.g. {\"condition\":\"template\",\"value_template\":\"{{ now().strftime('%Y-%m-%d') == '2026-09-05' }}\"}.",
         },
         condition: {
-          type: "object",
+          type: "array",
+          items: { type: "object" },
           description:
-            "Optional condition(s) that must be true for the action to run, as an HA condition object or array. Omit if there are no conditions.",
+            "Optional condition(s) that must be true for the action to run, as an array of HA condition objects. Omit if there are no conditions.",
         },
         action: {
-          type: "object",
+          type: "array",
+          items: { type: "object" },
           description:
             "The action(s) to perform. Each action MUST be shaped exactly as {\"service\": \"<domain>.<name>\", \"data\": {...}} with an optional \"target\": {\"entity_id\": \"...\"}. Example (light): {\"service\":\"light.turn_off\",\"target\":{\"entity_id\":\"light.porch\"}}. Example (phone notification): {\"service\":\"notify.mobile_app_<device>\",\"data\":{\"message\":\"...\"}}. The service id MUST include its domain prefix (e.g. \"notify.mobile_app_sm_a366b\" — get it from list_services). Do NOT add a separate \"domain\" key, and do NOT use \"service_data\" (use \"data\").",
         },
@@ -209,17 +212,20 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
             "Optional new name. A 'Nives: ' prefix is kept/added automatically — do not include it.",
         },
         trigger: {
-          type: "object",
+          type: "array",
+          items: { type: "object" },
           description:
-            "Optional replacement trigger (HA trigger object or array). Replaces the existing trigger entirely. Omit to keep the current trigger.",
+            "Optional replacement trigger (array of HA trigger objects). Replaces the existing trigger entirely. Omit to keep the current trigger.",
         },
         condition: {
-          type: "object",
+          type: "array",
+          items: { type: "object" },
           description:
-            "Optional replacement condition(s) (HA condition object or array). Replaces existing conditions. Omit to keep current.",
+            "Optional replacement condition(s) (array of HA condition objects). Replaces existing conditions. Omit to keep current.",
         },
         action: {
-          type: "object",
+          type: "array",
+          items: { type: "object" },
           description:
             "Optional replacement action(s). Replaces the existing action entirely. Each action MUST be shaped {\"service\": \"<domain>.<name>\", \"data\": {...}} with optional \"target\": {\"entity_id\": \"...\"} — full service id with its domain (from list_services), NO separate \"domain\" key, and use \"data\" not \"service_data\". Omit to keep the current action.",
         },
