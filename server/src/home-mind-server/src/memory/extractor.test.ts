@@ -62,6 +62,20 @@ describe("FactExtractor", () => {
     expect(facts).toHaveLength(1);
   });
 
+  it("joins JSON split across text blocks", async () => {
+    const middle = Math.floor(factsJson.length / 2);
+    mockCreate.mockResolvedValue({
+      content: [
+        { type: "text", text: factsJson.slice(0, middle) },
+        { type: "text", text: factsJson.slice(middle) },
+      ],
+    });
+
+    const facts = await extractor.extract("I like 22°C", "Noted.");
+
+    expect(facts).toHaveLength(1);
+  });
+
   it("returns no facts when the reply holds no text", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     mockCreate.mockResolvedValue({
