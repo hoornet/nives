@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.8.10
+
+- **Nives now learns from your conversations on the newest Claude models.** If you use your own Anthropic key with a model that thinks before it answers, such as Claude Haiku 5.5 or Opus 5.5, Nives now picks up the facts you tell it and remembers them. Other models and providers, and Nives Cloud, work as before.
+- The libraries Nives uses to reach the model providers are updated, including the move to version 1 of Anthropic's library and the newest version of the Claude API. Before release, a streamed reply with device lookups, a follow-up question, an image and memory were each checked with real requests on Claude Haiku 4.5 and 5.5, not only with the automated tests. Those requests went through an Anthropic-compatible service rather than straight to Anthropic, so if your own key behaves differently after this update, tell us and we'll be happy to help. No settings to change. Server 0.17.9.
+
 ## 2.8.9
 
 - **The add-on's image now checks everything it downloads while it is built.** Each file it fetches (the memory engine, its language model, the process supervisor and a helper library) is compared against a known fingerprint before it is used, and Node.js now comes from NodeSource's signed package repository instead of a setup script. A tampered or swapped download stops the build instead of reaching your Home Assistant. Nothing changes in how Nives behaves. Home Assistant will ask for one restart, as with every update. No settings to change. Server 0.17.8.
