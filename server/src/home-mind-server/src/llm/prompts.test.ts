@@ -282,3 +282,11 @@ describe("misheard-name tolerance (voice)", () => {
     expect(text).toContain("YOUR NAME, MISHEARD");
   });
 });
+
+describe("follow-up rule", () => {
+  // History keeps reply text only, so without this the model reads its own
+  // answer as unchecked and takes it back.
+  it.each([false, true])("says earlier tool calls are not shown (voice: %s)", (isVoice) => {
+    expect(buildSystemPromptText([], isVoice)).toContain("not the tool calls behind them");
+  });
+});
