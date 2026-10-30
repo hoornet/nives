@@ -20,8 +20,8 @@ This repo is **AGPL-3.0**. The server code in `server/` is a **hard fork** of `h
 |------|---------|------------|-------------|
 | `nives` | AGPL-3.0 | **Public** | **This repo** — the Nives HA add-on, including the forked conversation server |
 | `home-mind` | AGPL-3.0 | **Public** | Historic origin of `server/` code. **Now fully independent** — no sync in either direction |
-| `nives-cloud` | Proprietary | **Private** | Cloud signup/billing for Nives Cloud subscribers (renamed from `home-mind-cloud` end-to-end on 2026-06-06 — repo, dir, and VPS) |
-| `nives-app` | Proprietary | **Private** | Closed-source mobile/PWA frontend for Nives subscribers (Flutter package id `app.nives.assistant`) |
+| `nives-cloud` | Proprietary | **Private** | Cloud signup/billing for Nives Cloud (renamed from `home-mind-cloud` end-to-end on 2026-06-06 — repo, dir, and VPS) |
+| `nives-app` | Proprietary | **Private** | Closed-source mobile/PWA frontend for Nives users (React + Vite PWA, reverse-DNS `app.nives.assistant`) |
 | `home-mind-hacs` | AGPL-3.0 | **Public** | **Maintained.** The HACS integration OSS `home-mind` users install. This add-on ships its own copy from `rootfs/`; the two are independent and must not be synced |
 
 **Critical rules:**
@@ -68,11 +68,9 @@ HA Core
 ### HA Integration (Automatic)
 
 - `homeassistant_api: true` in `config.yaml` → container gets `SUPERVISOR_TOKEN`
-- Server uses **`HA_URL=http://supervisor/core`** + `HA_TOKEN=$SUPERVISOR_TOKEN` — check
-  `options-to-env.sh`, which is what actually sets it. This line used to say
-  `http://homeassistant:8123`, which is wrong and would send anyone who trusted it
-  chasing a 401: `SUPERVISOR_TOKEN` authenticates against the **Supervisor proxy**, not
-  against Core directly, so the direct address rejects it however correct the token is.
+- Server uses **`HA_URL=http://supervisor/core`** + `HA_TOKEN=$SUPERVISOR_TOKEN`, set by
+  `options-to-env.sh`. `SUPERVISOR_TOKEN` authenticates against the **Supervisor proxy**,
+  so a direct Core address such as `http://homeassistant:8123` rejects it with a 401.
 - No user configuration needed for HA access
 - `discovery: [nives]` in `config.yaml` auto-configures the companion HA integration
 
@@ -134,12 +132,9 @@ Shodh is a Rust-based semantic memory server. It stores facts about the user (pr
 Shodh has a memory leak (github.com/varun29ankuS/shodh-memory/issues/90) — grows to 2GB+ over 24 hours. Mitigations:
 
 1. **Watchdog service** — checks RSS every 4h, SIGTERMs if >512MB; s6 auto-restarts.
-   Before 2.3.3 it matched on `pgrep -f shodh-memory`, but the binary is launched as
-   `/usr/local/bin/shodh server …` — that pattern matched nothing, so the watchdog
-   silently did nothing in every release it shipped in (confirmed live: zero
-   `[watchdog]` lines across a week of add-on logs). Fixed in 2.3.3, which also
-   logs when no matching process is found. Keep the pattern in sync with
-   `s6-rc.d/shodh/run`.
+   It matches `/usr/local/bin/shodh server …`, the way the binary is launched, and logs
+   when no matching process is found. Keep the pattern in sync with
+   `s6-rc.d/shodh/run`, because a pattern that matches nothing fails silently.
 2. **`memory: 768` in `config.yaml` — does NOT work.** This is not a key the HA
    Supervisor recognises, so it is silently ignored; a live add-on reports
    `memory_limit` equal to the host's total RAM. HA add-on config has no
@@ -203,7 +198,9 @@ Users add `https://github.com/hoornet/nives` as a custom repository in HA Superv
 
 The add-on has its own semver, independent of the server version. CHANGELOG notes which server version is bundled.
 
-**IMPORTANT:** Every push to master that changes any file must bump the version in `nives/config.yaml`. HA compares this version number to detect updates — if the version doesn't change, users never see an update available, regardless of what was changed. Always bump version + add CHANGELOG entry before pushing.
+**Ship a version when there is something worth updating for, not once per commit.** Every version prompts each user to update and restart Home Assistant, so several in one day is noise. Group related work on a branch and land it as one version. Security fixes are the exception: they ship as soon as they are ready.
+
+HA compares the version in `nives/config.yaml` to detect updates, so nothing reaches existing users until it changes. Every push to master also rebuilds the image and re-tags the current version, so a code change pushed without a bump would silently replace that version's image for new installs. Anything that reaches the image or the user's disk therefore lands on master together with its version bump and CHANGELOG entry; until then it stays on the branch.
 
 **IMPORTANT:** The `version` field in `rootfs/opt/nives/manifest.json` must always match the add-on version in `config.yaml`. The `install-integration` s6 script compares these two versions to decide whether to overwrite the integration files on disk — if they match, the update is skipped and users keep running stale integration code.
 

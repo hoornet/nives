@@ -20,7 +20,7 @@ If the template API fails (older HA, network error), the scanner logs a warning 
 
 ### The Assist exposure list bounds the room map and the tools
 
-Settings → Voice assistants → Expose is the user's own list of what an assistant may see, and Home Assistant's own agent builds both its prompt and its live-context tool from it, so an unexposed entity does not exist for that agent. The list is websocket-only (`ha/exposed-entities.ts`). `AssistExposure` (`ha/exposure.ts`) is one cached reading of it, TTL 1 minute (2.8.4; it was the 30-minute topology scan interval, which refused "expose it and ask again" for up to half an hour), retried after 60 s when a read fails, with concurrent reads collapsed into one websocket call. `allows` re-reads the list before refusing, paced to once per 10 s (`missRefreshMs`), so a newly exposed entity works on the very next request; a read is one small websocket call, 6 to 25 ms on a 588-entity house. The room map keeps its own 30-minute scan. `index.ts` creates one instance and hands it to the `TopologyScanner` as its exposure provider (`LAYOUT_FROM_EXPOSED`, default on) and to `HomeAssistantClient` (`TOOLS_FROM_EXPOSED`, default on).
+Settings → Voice assistants → Expose is the user's own list of what an assistant may see, and Home Assistant's own agent builds both its prompt and its live-context tool from it, so an unexposed entity does not exist for that agent. The list is websocket-only (`ha/exposed-entities.ts`). `AssistExposure` (`ha/exposure.ts`) is one cached reading of it, TTL 1 minute, retried after 60 s when a read fails, with concurrent reads collapsed into one websocket call. `allows` re-reads the list before refusing, paced to once per 10 s (`missRefreshMs`), so a newly exposed entity works on the very next request; a read is one small websocket call, 6 to 25 ms on a 588-entity house. The room map keeps its own 30-minute scan. `index.ts` creates one instance and hands it to the `TopologyScanner` as its exposure provider (`LAYOUT_FROM_EXPOSED`, default on) and to `HomeAssistantClient` (`TOOLS_FROM_EXPOSED`, default on).
 
 With the client bounded, `get_state` and `get_history` refuse an unexposed entity before any request, `get_entities` and `search_entities` return exposed entities only, and `call_service` refuses before the request leaves: a named `entity_id` (string, list or comma-separated), ids in `data.entity_id` or a nested `target.entity_id`, the entity maps and lists of `scene.apply` / `scene.create` / `group.set` (`entities`, `snapshot_entities`, `add_entities`, `remove_entities`), the speaker of `tts.speak` (`media_player_entity_id`) and the speakers of `media_player.join` (`group_members`), `entity_id: "all"`, and, while the list has an opinion, any `area_id` / `device_id` / `floor_id` / `label_id` target, which cannot be vetted without resolving it. Running `script.<name>` needs that script exposed. **Voice engines (`tts.*`) are always allowed** (`ALWAYS_ALLOWED_DOMAINS` in `exposure.ts`, applied in `allows` and `filter`, so `search_entities` finds them too; the room map reads `list()` and is unaffected): HA exposes no tts entity by default, an engine can only be heard through a speaker, and the speaker is checked, so requiring the engine exposed protected nothing while blocking every announcement, Nives's own voice included (2.8.3). The refusal text (`notExposedMessage`) tells the model the entity is out of scope and not to retry other spellings. An exposed group still acts on all of its members; Home Assistant's own agent behaves the same.
 
@@ -73,7 +73,6 @@ All commands run from `src/home-mind-server/`:
 npm run dev          # tsx watch (hot reload), starts at localhost:3100
 npm run build        # tsc → dist/
 npm run typecheck    # tsc --noEmit
-npm run lint         # eslint src/
 npm test             # vitest run
 npm run test:watch   # vitest (watch mode)
 npm run test:coverage # vitest with v8 coverage
@@ -139,7 +138,7 @@ return ConversationResult(response=intent_response)
 
 **OptionsFlow has no `__init__`** — passing `config_entry` to the superclass constructor breaks in newer HA versions (fixed in v0.9.1).
 
-**Voice detection**: Detected via `user_input.agent_id is not None` (not HA metadata), sets `isVoice=true` on server request.
+**Voice detection**: `satellite_id` is set (read with `getattr`, since it does not exist on older Cores), which sets `isVoice=true` on the server request. Don't key on `agent_id`: Home Assistant sets it on every routed request, typed or spoken.
 
 **Conversation IDs**: Uses `ulid.ulid_now()` (not UUID).
 
@@ -167,8 +166,6 @@ There is **no proxy**. In cloud mode `options-to-env.sh` sets `LLM_PROVIDER=open
 
 The model is not hardcoded: at boot the add-on asks `GET https://nives.house/api/addon/config` (bearer = the user's key) which returns `@preset/nives-<tier>`, so the model lineup is managed server-side with no add-on release. Bounded and failure-safe — an 8s timeout, falling back to `@preset/nives-standard` if the cloud is briefly unreachable. Chat itself never goes through nives.house.
 
-> Historical note: this section used to describe a "Home Mind Cloud metering proxy" (`OPENAI_BASE_URL=<proxy>/v1`). That proxy was retired and its repo is archived under `Legacy/`. Nothing in the request path goes through us any more.
-
 STT (optional): `STT_PROVIDER` (`openai` | `none`, default `none`), `STT_API_KEY` (overrides `OPENAI_API_KEY`), `STT_BASE_URL` (custom Whisper-compatible endpoint), `STT_MODEL` (default `whisper-1`)
 
 TTS (optional): `TTS_PROVIDER` (`openai` | `none`, default `none`), `TTS_API_KEY` (overrides `OPENAI_API_KEY`), `TTS_BASE_URL` (custom OpenAI-compatible endpoint), `TTS_MODEL` (default `tts-1`), `TTS_VOICE` (default `alloy`)
@@ -181,7 +178,7 @@ Optional bearer token auth via `API_TOKEN` env var. When set, all endpoints exce
 
 - **Health endpoint** (`/api/health`) is always public, even when auth is enabled
 - **Timing-safe comparison** prevents timing attacks on the token
-- **HACS config flow** validates tokens against `/api/memory/{userId}` (not `/api/health`, since health bypasses auth)
+- **The integration's config flow** validates tokens against `/api/memory/{userId}` (not `/api/health`, since health bypasses auth)
 - **Compressed request bodies are refused with 415** (`api/json-body.ts`, `inflate: false`). `express.json()` runs before the token check, so whatever it does to a body, an unauthenticated caller can make it do; at body-parser's default that included decompressing gzip, deflate and Brotli (CVE-2026-111497 was in Node's Brotli decoder). Don't drop the option as redundant once Node is patched; `json-body.test.ts` proves the default would decode.
 
 ## API Endpoints
@@ -205,13 +202,13 @@ Optional bearer token auth via `API_TOKEN` env var. When set, all endpoints exce
 
 **How this actually ships:** as part of the Nives add-on, not standalone. The add-on's `nives/Dockerfile` builds this source in a Node stage, and s6-overlay runs it alongside Shodh in one container. Shodh comes from a **GitHub release binary** (both `linux-x64` and `linux-arm64` — the official Docker image is amd64-only), not from Docker Hub. See `nives/CLAUDE.md` for the s6 service layout and the config bridge.
 
-**The HA integration is not installed via HACS.** It ships inside this repo at `nives/rootfs/opt/nives/` and the `install-integration` s6 oneshot copies it into `/config/custom_components/nives/` on startup, version-gated against `manifest.json`. Users never touch HACS. (The old `home-mind-hacs` repo belongs to the OSS sister project and is archived under `Legacy/` — don't reference it here.)
+**The HA integration is not installed via HACS.** It ships inside this repo at `nives/rootfs/opt/nives/` and the `install-integration` s6 oneshot copies it into `/config/custom_components/nives/` on startup, version-gated against `manifest.json`. Users never touch HACS. (`home-mind-hacs` is the OSS sister project's own integration, independent of this one, so don't reference it here.)
 
-**Standalone dev only:** the `docker-compose.yml` in this directory runs `shodh` (port 3030) and `server` (port 3100) as two services for working on the server outside HA. That path uses the `varunshodh/shodh-memory` image, pinned by tag and digest, via a thin wrapper (`docker/shodh/Dockerfile`) that fixes volume permissions, and `deploy.sh` auto-generates `SHODH_API_KEY`. It is not how the add-on runs.
+**Standalone dev only:** the `docker-compose.yml` in this directory runs `shodh` (port 3030) and `server` (port 3100) as two services for working on the server outside HA. That path uses the `varunshodh/shodh-memory` image, pinned by tag and digest, via a thin wrapper (`docker/shodh/Dockerfile`) that fixes volume permissions, and `scripts/deploy.sh` auto-generates `SHODH_API_KEY`. It is not how the add-on runs.
 
 ## Known Limitations
 
-- Single-user only (multi-user via OIDC planned)
+- No per-user login: one API token for the whole server (multi-user via OIDC planned). Per-user memory buckets are opt-in, see "Whose memory"
 - Conversation history lost on server restart by default (set `CONVERSATION_STORAGE=sqlite` for persistence)
 - Both chat and extraction use the same model (configured via `LLM_MODEL`)
 - Fact extraction sometimes stores transient state or LLM hallucinations (improvement planned)
