@@ -7,7 +7,7 @@ import {
 
 describe("TOOL_DEFINITIONS", () => {
   it("has 11 tools", () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(11);
+    expect(TOOL_DEFINITIONS).toHaveLength(12);
   });
 
   it("has the expected tool names", () => {
@@ -20,6 +20,7 @@ describe("TOOL_DEFINITIONS", () => {
       "get_history",
       "create_automation",
       "list_automations",
+      "get_automation",
       "delete_automation",
       "update_automation",
       "list_services",
@@ -42,7 +43,7 @@ describe("toAnthropicTools", () => {
   it("converts to Anthropic format with input_schema", () => {
     const result = toAnthropicTools(TOOL_DEFINITIONS);
 
-    expect(result).toHaveLength(11);
+    expect(result).toHaveLength(12);
     for (const tool of result) {
       expect(tool).toHaveProperty("name");
       expect(tool).toHaveProperty("description");
@@ -67,7 +68,7 @@ describe("toOpenAITools", () => {
   it("wraps in function type", () => {
     const result = toOpenAITools(TOOL_DEFINITIONS);
 
-    expect(result).toHaveLength(11);
+    expect(result).toHaveLength(12);
     for (const tool of result) {
       expect(tool.type).toBe("function");
       const fn = (tool as any).function;

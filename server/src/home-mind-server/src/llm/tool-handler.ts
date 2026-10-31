@@ -313,6 +313,40 @@ export async function handleToolCall(
         break;
       }
 
+      case "get_automation": {
+        const entityId = (input.entity_id as string | undefined)?.trim();
+        if (!entityId) {
+          result = { error: "get_automation requires an 'entity_id'." };
+          break;
+        }
+        const automations = await ha.listAutomations();
+        const target = automations.find((a) => a.entity_id === entityId);
+        if (!target) {
+          result = { error: `No automation found with entity_id "${entityId}".` };
+          break;
+        }
+        const configId = target.attributes.id as string | undefined;
+        if (!configId) {
+          result = {
+            error: `Automation "${entityId}" can't be read via the API — it isn't stored in automations.yaml (UI/YAML-managed).`,
+          };
+          break;
+        }
+        const { hidden, ...settings } = await ha.readAutomation(configId);
+        result = {
+          entity_id: entityId,
+          ...settings,
+          ...(hidden.length > 0 && {
+            hidden,
+            note: "The fields under 'hidden' name devices the user has not exposed to the assistant, so you can't read or replace them. The user can edit them in Home Assistant, or expose those devices and ask again.",
+          }),
+          ...(settings.blueprint !== undefined && {
+            note: "This automation is built from a blueprint, which holds its triggers and actions, so you can't read or change them. The user can edit it in Home Assistant.",
+          }),
+        };
+        break;
+      }
+
       case "delete_automation": {
         const entityId = (input.entity_id as string | undefined)?.trim();
         if (!entityId) {

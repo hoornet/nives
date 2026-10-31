@@ -171,11 +171,27 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "list_automations",
     description:
-      "List the Home Assistant automations (entity_id, name, and on/off enabled state). Automations Nives created are named with a 'Nives: ' prefix. Use this to answer 'what automations do I have / did you make', or to find an automation's entity_id before deleting it.",
+      "List the Home Assistant automations (entity_id, name, and on/off enabled state). Automations Nives created are named with a 'Nives: ' prefix. Use this to answer 'what automations do I have / did you make', or to find an automation's entity_id before deleting it. Names only: to see what an automation does, use get_automation.",
     parameters: {
       type: "object",
       properties: {},
       required: [],
+    },
+  },
+  {
+    name: "get_automation",
+    description:
+      "Read one automation: its name, run mode, trigger, condition and action, in the shape update_automation takes. Read-only, no confirmation needed. Use this to answer 'what does this automation do', and ALWAYS before passing a trigger, condition or action to update_automation: whatever you pass replaces that whole field, so start from what is stored and keep everything the user did not ask to change. A field listed under 'hidden' names devices the user has not exposed: you can't read or replace it. An automation built from a blueprint shows only the blueprint, and can't be changed here.",
+    parameters: {
+      type: "object",
+      properties: {
+        entity_id: {
+          type: "string",
+          description:
+            "The automation entity_id to read (e.g. 'automation.living_room_light_off_at_23_00'). Obtain it from list_automations.",
+        },
+      },
+      required: ["entity_id"],
     },
   },
   {
@@ -197,7 +213,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "update_automation",
     description:
-      "Modify an existing automation — change its trigger, action, name, conditions, or mode. Get the entity_id from list_automations first. Provide ONLY the fields you want to change; everything else is kept as-is. Call this AS SOON AS you know what to change — do NOT ask the user for permission first. The FIRST call NEVER changes anything: it returns a 'confirmation_required' preview of the change, and relaying that IS how you ask. Only after the user agrees in their NEXT message do you call this again with the same arguments to apply it. Asking in text before the first call just makes the user confirm twice. (There is no in-place partial edit of a trigger/action — whatever you pass for a field fully replaces that field.)",
+      "Modify an existing automation — change its trigger, action, name, conditions, or mode. Get the entity_id from list_automations first. Provide ONLY the fields you want to change; everything else is kept as-is. Call this AS SOON AS you know what to change — do NOT ask the user for permission first. The FIRST call NEVER changes anything: it returns a 'confirmation_required' preview of the change, and relaying that IS how you ask. Only after the user agrees in their NEXT message do you call this again with the same arguments to apply it. Asking in text before the first call just makes the user confirm twice. (There is no in-place partial edit of a trigger/action — whatever you pass for a field fully replaces that field, so read it with get_automation first and keep what the user did not ask to change.)",
     parameters: {
       type: "object",
       properties: {

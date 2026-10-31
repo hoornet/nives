@@ -43,6 +43,14 @@ describe("handleToolCall", () => {
       }),
       requireExposedAutomation: vi.fn().mockResolvedValue(undefined),
       getAutomationConfig: vi.fn().mockResolvedValue({ id: "1700000000000" }),
+      readAutomation: vi.fn().mockResolvedValue({
+        alias: "Nives: Living room light off at 23:00",
+        mode: "single",
+        trigger: [{ platform: "time", at: "23:00:00" }],
+        condition: [],
+        action: [{ service: "light.turn_off", target: { entity_id: "light.living_room" } }],
+        hidden: [],
+      }),
     } as unknown as HomeAssistantClient;
   });
 
@@ -235,6 +243,87 @@ describe("handleToolCall", () => {
         id: "1700000000000",
       },
     ]);
+  });
+
+  it("dispatches get_automation: resolves entity_id to config id and reads it", async () => {
+    const result = await handleToolCall(ha, "get_automation", {
+      entity_id: "automation.living_room_light_off_at_23_00",
+    });
+
+    expect(ha.readAutomation).toHaveBeenCalledWith("1700000000000");
+    expect(result).toEqual({
+      entity_id: "automation.living_room_light_off_at_23_00",
+      alias: "Nives: Living room light off at 23:00",
+      mode: "single",
+      trigger: [{ platform: "time", at: "23:00:00" }],
+      condition: [],
+      action: [{ service: "light.turn_off", target: { entity_id: "light.living_room" } }],
+    });
+  });
+
+  it("get_automation says which fields it left out and what the user can do", async () => {
+    vi.mocked(ha.readAutomation).mockResolvedValueOnce({
+      alias: "Hallway",
+      mode: "single",
+      condition: [],
+      action: [],
+      hidden: ["trigger"],
+    });
+
+    const result = (await handleToolCall(ha, "get_automation", {
+      entity_id: "automation.living_room_light_off_at_23_00",
+    })) as Record<string, unknown>;
+
+    expect(result.hidden).toEqual(["trigger"]);
+    expect(result.note).toMatch(/can't read or replace/);
+    expect(result).not.toHaveProperty("trigger");
+  });
+
+  it("get_automation says when a blueprint holds the automation", async () => {
+    vi.mocked(ha.readAutomation).mockResolvedValueOnce({
+      alias: "Motion light",
+      mode: "single",
+      blueprint: "homeassistant/motion_light.yaml",
+      hidden: [],
+    });
+
+    const result = (await handleToolCall(ha, "get_automation", {
+      entity_id: "automation.living_room_light_off_at_23_00",
+    })) as Record<string, unknown>;
+
+    expect(result.blueprint).toBe("homeassistant/motion_light.yaml");
+    expect(result.note).toMatch(/built from a blueprint/);
+  });
+
+  it("get_automation needs no confirmation", async () => {
+    const ctx: ToolContext = { conversationId: "conv-read", turnId: "turn-1" };
+    const result = await handleToolCall(
+      ha,
+      "get_automation",
+      { entity_id: "automation.living_room_light_off_at_23_00" },
+      ctx
+    );
+
+    expect(result).toHaveProperty("alias");
+    expect(result).not.toHaveProperty("confirmation_required");
+  });
+
+  it("get_automation reports a missing id, an unknown automation and a YAML one", async () => {
+    await expect(handleToolCall(ha, "get_automation", {})).resolves.toEqual({
+      error: "get_automation requires an 'entity_id'.",
+    });
+    await expect(
+      handleToolCall(ha, "get_automation", { entity_id: "automation.nope" })
+    ).resolves.toEqual({ error: 'No automation found with entity_id "automation.nope".' });
+
+    vi.mocked(ha.listAutomations).mockResolvedValueOnce([
+      { entity_id: "automation.from_yaml", state: "on", attributes: {} },
+    ] as never);
+    const result = (await handleToolCall(ha, "get_automation", {
+      entity_id: "automation.from_yaml",
+    })) as { error: string };
+    expect(result.error).toMatch(/can't be read via the API/);
+    expect(ha.readAutomation).not.toHaveBeenCalled();
   });
 
   it("dispatches delete_automation: resolves entity_id to config id and deletes", async () => {
