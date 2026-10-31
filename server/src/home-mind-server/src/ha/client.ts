@@ -710,6 +710,7 @@ export class HomeAssistantClient {
   /** Whether a stored section reaches past the exposure list. */
   private async isHiddenSection(section: unknown): Promise<boolean> {
     try {
+      // Reach is read the same way in all three sections, so `action` stands for any.
       await this.requireExposedAutomation({ action: section });
       return false;
     } catch {
