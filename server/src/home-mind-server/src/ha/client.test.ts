@@ -222,9 +222,12 @@ describe("HomeAssistantClient.createAutomation", () => {
 
 describe("HomeAssistantClient.updateAutomation", () => {
   let calls: { url: string; method: string; body?: string }[];
+  /** Added to the automation the mocked config API returns. */
+  let storedExtras: Record<string, unknown>;
 
   beforeEach(() => {
     calls = [];
+    storedExtras = {};
     global.fetch = vi.fn(async (input: unknown, init?: unknown) => {
       const url = typeof input === "string" ? input : String(input);
       const opts = (init ?? {}) as { method?: string; body?: string };
@@ -243,6 +246,7 @@ describe("HomeAssistantClient.updateAutomation", () => {
             triggers: [{ platform: "time", at: "23:00:00" }],
             conditions: [],
             actions: [{ service: "light.turn_off", target: { entity_id: "light.living_room" } }],
+            ...storedExtras,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
@@ -302,6 +306,45 @@ describe("HomeAssistantClient.updateAutomation", () => {
       { service: "light.turn_off", target: { entity_id: "light.living_room" } },
     ]);
     expect(result.id).toBe("1700000000000");
+  });
+
+  it("keeps the settings it has no field for", async () => {
+    storedExtras = {
+      mode: "queued",
+      max: 5,
+      max_exceeded: "silent",
+      variables: { brightness: 80 },
+      trigger_variables: { sensor: "sensor.hall" },
+    };
+
+    await new HomeAssistantClient(baseConfig).updateAutomation("1700000000000", {
+      trigger: [{ platform: "time", at: "22:00:00" }],
+    });
+
+    const post = calls.find((c) => c.method === "POST" && c.url.includes("/api/config/automation/"));
+    const sent = JSON.parse(post!.body!);
+    expect(sent).toMatchObject({
+      mode: "queued",
+      max: 5,
+      max_exceeded: "silent",
+      variables: { brightness: 80 },
+      trigger_variables: { sensor: "sensor.hall" },
+    });
+    // One name for each section, or the entry would carry the old trigger as well.
+    expect(sent).not.toHaveProperty("triggers");
+    expect(sent).not.toHaveProperty("actions");
+  });
+
+  it("refuses an automation built from a blueprint, which it would empty", async () => {
+    storedExtras = {
+      alias: "Motion light",
+      use_blueprint: { path: "homeassistant/motion_light.yaml", input: { motion_entity: "binary_sensor.hall" } },
+    };
+
+    await expect(
+      new HomeAssistantClient(baseConfig).updateAutomation("1700000000000", { alias: "Hall light" })
+    ).rejects.toThrow(/built from a blueprint/);
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
 });
 

@@ -692,14 +692,32 @@ export class HomeAssistantClient {
     changes: Partial<AutomationConfig>
   ): Promise<CreatedAutomation> {
     const current = await this.getAutomationConfig(id);
+    // Its triggers and actions live in the blueprint, and writing it back without
+    // `use_blueprint` would leave an automation that does nothing.
+    if (current.use_blueprint !== undefined) {
+      throw new Error(
+        `"${current.alias}" is built from a blueprint, so it can't be changed here. ` +
+          `Nothing was changed. The user can edit it in Home Assistant.`
+      );
+    }
     // HA's config API returns plural keys (triggers/conditions/actions); older
     // forms / our POST body use singular. Read BOTH so an un-changed field is
     // preserved from current instead of being wiped to [] (this silently
     // destroyed actions on trigger-only updates before the fix).
-    const curTrigger = current.trigger ?? current.triggers;
-    const curCondition = current.condition ?? current.conditions;
-    const curAction = current.action ?? current.actions;
+    const {
+      trigger: curSingularTrigger,
+      triggers: curTriggers,
+      condition: curSingularCondition,
+      conditions: curConditions,
+      action: curSingularAction,
+      actions: curActions,
+      ...rest // A write replaces the whole entry: keep `variables`, `max` and the like.
+    } = current;
+    const curTrigger = curSingularTrigger ?? curTriggers;
+    const curCondition = curSingularCondition ?? curConditions;
+    const curAction = curSingularAction ?? curActions;
     const merged = {
+      ...rest,
       id,
       alias: changes.alias ?? (current.alias as string),
       description: changes.description ?? (current.description as string) ?? "",
