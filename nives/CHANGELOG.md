@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.0
+
+- **Nives can read what an automation does.** Ask what an automation does and it reads the triggers, conditions and actions rather than working from the name. When you ask for a change, it reads the automation first and keeps everything you did not ask to change.
+- **Parts of an automation you have not exposed stay out of reach.** If part of an automation names something you have not exposed to Assist, or selects a device or area, Nives tells you it can't see that part and won't replace it. You can edit that part in Home Assistant, or expose those devices and ask again. Home Assistant's automation editor often selects devices, so expect this on automations you built by hand.
+- **Changing an automation keeps all of its settings.** That includes settings Nives has no field for, such as variables and the limit on parallel runs. If you asked Nives to change an automation that uses them before this update, it's worth checking they are still there. Automations built from a blueprint can't be changed through Nives. It tells you so, and you can edit them in Home Assistant.
+- **Steadier answers on follow-ups.** On newer models such as Claude Haiku 5.5, a follow-up or a simple thanks could make Nives take back a correct answer or look everything up again. It now stands by what it checked, and looks again when you ask it to or when something may have changed.
+- With your own Anthropic key, Claude Haiku 5.5 sometimes sent an automation's triggers as text rather than as a list. Nives now accepts both.
+- Before release, reading and changing automations were checked with real requests on Claude Haiku 5.5 with an Anthropic key against a test setup, and reading was checked on a real Home Assistant with 26 automations, with changes blocked. Nives Cloud was not part of that test, so if changing an automation behaves differently for you, tell us and we'll be happy to help. No settings to change. Home Assistant will ask for one restart, as with every update. Server 0.18.0.
+
 ## 2.8.10
 
 - **Nives now learns from your conversations on the newest Claude models.** If you use your own Anthropic key with a model that thinks before it answers, such as Claude Haiku 5.5 or Opus 5.5, Nives now picks up the facts you tell it and remembers them. Other models and providers, and Nives Cloud, work as before.
