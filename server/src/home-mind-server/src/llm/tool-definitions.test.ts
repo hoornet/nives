@@ -7,7 +7,7 @@ import {
 
 describe("TOOL_DEFINITIONS", () => {
   it("has 11 tools", () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(11);
+    expect(TOOL_DEFINITIONS).toHaveLength(12);
   });
 
   it("has the expected tool names", () => {
@@ -20,6 +20,7 @@ describe("TOOL_DEFINITIONS", () => {
       "get_history",
       "create_automation",
       "list_automations",
+      "get_automation",
       "delete_automation",
       "update_automation",
       "list_services",
@@ -42,7 +43,7 @@ describe("toAnthropicTools", () => {
   it("converts to Anthropic format with input_schema", () => {
     const result = toAnthropicTools(TOOL_DEFINITIONS);
 
-    expect(result).toHaveLength(11);
+    expect(result).toHaveLength(12);
     for (const tool of result) {
       expect(tool).toHaveProperty("name");
       expect(tool).toHaveProperty("description");
@@ -67,7 +68,7 @@ describe("toOpenAITools", () => {
   it("wraps in function type", () => {
     const result = toOpenAITools(TOOL_DEFINITIONS);
 
-    expect(result).toHaveLength(11);
+    expect(result).toHaveLength(12);
     for (const tool of result) {
       expect(tool.type).toBe("function");
       const fn = (tool as any).function;
@@ -117,5 +118,21 @@ describe("gated tools describe the preview-first flow, not a pre-call question",
       expect(d).toMatch(/confirmation_required/);
       expect(d).toMatch(/NEXT message/);
     });
+  }
+});
+
+describe("automation field schemas", () => {
+  // Declared as "object" these left a model holding a list no valid way to send
+  // it, and Haiku 5.5 on the Anthropic API sent JSON text instead.
+  for (const name of ["create_automation", "update_automation"]) {
+    for (const field of ["trigger", "condition", "action"]) {
+      it(`${name}.${field} is an array of objects`, () => {
+        const tool = TOOL_DEFINITIONS.find((t) => t.name === name)!;
+        expect(tool.parameters.properties[field]).toMatchObject({
+          type: "array",
+          items: { type: "object" },
+        });
+      });
+    }
   }
 });

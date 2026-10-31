@@ -53,6 +53,21 @@ export interface CreatedAutomation {
   entity_id: string;
 }
 
+type AutomationSection = "trigger" | "condition" | "action";
+
+/** A stored automation as the assistant may read it. */
+export interface AutomationSettings {
+  alias: string;
+  mode: string;
+  trigger?: unknown[];
+  condition?: unknown[];
+  action?: unknown[];
+  /** Path of the blueprint it is built from, which holds its sections instead. */
+  blueprint?: string;
+  /** Sections left out because they name something the user did not expose. */
+  hidden: AutomationSection[];
+}
+
 /**
  * What HA's services catalog says about a service's response. HA rejects a
  * call with `?return_response` on a service that has none ("none"), and
@@ -200,22 +215,32 @@ export class HomeAssistantClient {
    *   assistant from renaming or retiming automations the user made by hand.
    *   Only reach that is new to the section is checked, so an entity the
    *   automation merely watched cannot be moved into an action that drives it.
+   *   A section the assistant is not allowed to read cannot be replaced without
+   *   keeping what it names: the assistant would be writing over what it never saw.
    */
   async requireExposedAutomation(
-    sections: Partial<Pick<AutomationConfig, "trigger" | "condition" | "action">>,
+    sections: Partial<Pick<AutomationConfig, AutomationSection>>,
     current?: Record<string, unknown>
   ): Promise<void> {
     if (!this.exposure || (await this.exposure.list()) === null) return;
-    const pairs: [unknown, unknown][] = [
-      [sections.trigger, current?.trigger ?? current?.triggers],
-      [sections.condition, current?.condition ?? current?.conditions],
-      [sections.action, current?.action ?? current?.actions],
+    const pairs: [AutomationSection, unknown, unknown][] = [
+      ["trigger", sections.trigger, current?.trigger ?? current?.triggers],
+      ["condition", sections.condition, current?.condition ?? current?.conditions],
+      ["action", sections.action, current?.action ?? current?.actions],
     ];
     const reach = emptyReach();
-    for (const [next, before] of pairs) {
+    for (const [section, next, before] of pairs) {
       if (next === undefined) continue;
       const known = reachKeys(collectReach(before));
       const found = collectReach(next);
+      const kept = reachKeys(found);
+      if ([...known].some((item) => !kept.has(item)) && (await this.isHiddenSection(before))) {
+        throw new Error(
+          `The ${section} of this automation names devices the user has not exposed to the ` +
+            `assistant, so you can't see it, and replacing it would lose them. Nothing was ` +
+            `changed. The user can edit it in Home Assistant, or expose those devices and ask again.`
+        );
+      }
       for (const kind of ["named", "indirect", "templated", "mentioned"] as const) {
         for (const item of found[kind]) if (!known.has(item)) reach[kind].add(item);
       }
@@ -682,6 +707,45 @@ export class HomeAssistantClient {
     return this.fetch<Record<string, unknown>>(`/api/config/automation/config/${id}`);
   }
 
+  /** Whether a stored section reaches past the exposure list. */
+  private async isHiddenSection(section: unknown): Promise<boolean> {
+    try {
+      // Reach is read the same way in all three sections, so `action` stands for any.
+      await this.requireExposedAutomation({ action: section });
+      return false;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * An automation as the assistant may read it, under the names update_automation
+   * takes. The automation itself is not bounded by the exposure list (see the note
+   * above createAutomation), but what it names is: a section that reaches past the
+   * list is left out, so an unexposed id can't come back through its automation.
+   */
+  async readAutomation(id: string): Promise<AutomationSettings> {
+    const config = await this.getAutomationConfig(id);
+    const settings: AutomationSettings = {
+      alias: config.alias as string,
+      mode: (config.mode as string) ?? "single",
+      hidden: [],
+    };
+    if (config.use_blueprint !== undefined) {
+      return { ...settings, blueprint: (config.use_blueprint as { path: string }).path };
+    }
+    const stored: [AutomationSection, unknown][] = [
+      ["trigger", config.trigger ?? config.triggers],
+      ["condition", config.condition ?? config.conditions],
+      ["action", config.action ?? config.actions],
+    ];
+    for (const [section, value] of stored) {
+      if (await this.isHiddenSection(value)) settings.hidden.push(section);
+      else settings[section] = this.toArray(value);
+    }
+    return settings;
+  }
+
   /**
    * Update an existing automation: read its current config, overlay only the
    * provided fields, validate service references, write back to the same id,
@@ -692,14 +756,32 @@ export class HomeAssistantClient {
     changes: Partial<AutomationConfig>
   ): Promise<CreatedAutomation> {
     const current = await this.getAutomationConfig(id);
+    // Its triggers and actions live in the blueprint, and writing it back without
+    // `use_blueprint` would leave an automation that does nothing.
+    if (current.use_blueprint !== undefined) {
+      throw new Error(
+        `"${current.alias}" is built from a blueprint, so it can't be changed here. ` +
+          `Nothing was changed. The user can edit it in Home Assistant.`
+      );
+    }
     // HA's config API returns plural keys (triggers/conditions/actions); older
     // forms / our POST body use singular. Read BOTH so an un-changed field is
     // preserved from current instead of being wiped to [] (this silently
     // destroyed actions on trigger-only updates before the fix).
-    const curTrigger = current.trigger ?? current.triggers;
-    const curCondition = current.condition ?? current.conditions;
-    const curAction = current.action ?? current.actions;
+    const {
+      trigger: curSingularTrigger,
+      triggers: curTriggers,
+      condition: curSingularCondition,
+      conditions: curConditions,
+      action: curSingularAction,
+      actions: curActions,
+      ...rest // A write replaces the whole entry: keep `variables`, `max` and the like.
+    } = current;
+    const curTrigger = curSingularTrigger ?? curTriggers;
+    const curCondition = curSingularCondition ?? curConditions;
+    const curAction = curSingularAction ?? curActions;
     const merged = {
+      ...rest,
       id,
       alias: changes.alias ?? (current.alias as string),
       description: changes.description ?? (current.description as string) ?? "",

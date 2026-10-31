@@ -222,9 +222,12 @@ describe("HomeAssistantClient.createAutomation", () => {
 
 describe("HomeAssistantClient.updateAutomation", () => {
   let calls: { url: string; method: string; body?: string }[];
+  /** Added to the automation the mocked config API returns. */
+  let storedExtras: Record<string, unknown>;
 
   beforeEach(() => {
     calls = [];
+    storedExtras = {};
     global.fetch = vi.fn(async (input: unknown, init?: unknown) => {
       const url = typeof input === "string" ? input : String(input);
       const opts = (init ?? {}) as { method?: string; body?: string };
@@ -243,6 +246,7 @@ describe("HomeAssistantClient.updateAutomation", () => {
             triggers: [{ platform: "time", at: "23:00:00" }],
             conditions: [],
             actions: [{ service: "light.turn_off", target: { entity_id: "light.living_room" } }],
+            ...storedExtras,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         );
@@ -302,6 +306,45 @@ describe("HomeAssistantClient.updateAutomation", () => {
       { service: "light.turn_off", target: { entity_id: "light.living_room" } },
     ]);
     expect(result.id).toBe("1700000000000");
+  });
+
+  it("keeps the settings it has no field for", async () => {
+    storedExtras = {
+      mode: "queued",
+      max: 5,
+      max_exceeded: "silent",
+      variables: { brightness: 80 },
+      trigger_variables: { sensor: "sensor.hall" },
+    };
+
+    await new HomeAssistantClient(baseConfig).updateAutomation("1700000000000", {
+      trigger: [{ platform: "time", at: "22:00:00" }],
+    });
+
+    const post = calls.find((c) => c.method === "POST" && c.url.includes("/api/config/automation/"));
+    const sent = JSON.parse(post!.body!);
+    expect(sent).toMatchObject({
+      mode: "queued",
+      max: 5,
+      max_exceeded: "silent",
+      variables: { brightness: 80 },
+      trigger_variables: { sensor: "sensor.hall" },
+    });
+    // One name for each section, or the entry would carry the old trigger as well.
+    expect(sent).not.toHaveProperty("triggers");
+    expect(sent).not.toHaveProperty("actions");
+  });
+
+  it("refuses an automation built from a blueprint, which it would empty", async () => {
+    storedExtras = {
+      alias: "Motion light",
+      use_blueprint: { path: "homeassistant/motion_light.yaml", input: { motion_entity: "binary_sensor.hall" } },
+    };
+
+    await expect(
+      new HomeAssistantClient(baseConfig).updateAutomation("1700000000000", { alias: "Hall light" })
+    ).rejects.toThrow(/built from a blueprint/);
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
   });
 });
 
@@ -946,6 +989,36 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       expect(wroteAutomation()).toBe(true);
     });
 
+    it("an update cannot replace a section the assistant isn't allowed to read", async () => {
+      storedAutomation = {
+        id: "1700000000000",
+        alias: "Kitchen presence",
+        triggers: [{ trigger: "state", entity_id: "sensor.kitchen_presence", to: "on" }],
+        actions: [kitchenOn],
+      };
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      const refusal = client.updateAutomation("1700000000000", { trigger: at7 });
+      await expect(refusal).rejects.toThrow(/names devices the user has not exposed/);
+      await expect(refusal).rejects.not.toThrow(/sensor\.kitchen_presence/);
+      // an empty section loses it just the same
+      await expect(
+        client.updateAutomation("1700000000000", { trigger: [] })
+      ).rejects.toThrow(/replacing it would lose them/);
+      expect(calls.filter((u) => u.includes("/api/config/automation/config/"))).toHaveLength(2); // the reads
+    });
+
+    it("an update can still replace the sections the assistant can read", async () => {
+      storedAutomation = {
+        id: "1700000000000",
+        alias: "Kitchen presence",
+        triggers: [{ trigger: "state", entity_id: "sensor.kitchen_presence", to: "on" }],
+        actions: [kitchenOn],
+      };
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await client.updateAutomation("1700000000000", { action: [] });
+      expect(calls.filter((u) => u.includes("/api/config/automation/config/"))).toHaveLength(2);
+    });
+
     it("an update cannot move a watched entity into an action that drives it", async () => {
       storedAutomation = {
         id: "1700000000000",
@@ -964,6 +1037,95 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       const client = new HomeAssistantClient(baseConfig, new AssistExposure(async () => null));
       await client.createAutomation({ alias: "Unlock at 7", trigger: at7, action: unlock });
       expect(wroteAutomation()).toBe(true);
+    });
+
+    describe("reading an automation back", () => {
+      const handWritten = {
+        id: "1700000000000",
+        alias: "Kitchen presence",
+        triggers: [{ trigger: "state", entity_id: "sensor.kitchen_presence", to: "on" }],
+        conditions: [{ condition: "state", entity_id: "person.resident", state: "home" }],
+        actions: [kitchenOn],
+      };
+
+      it("shows every section under the names update_automation takes", async () => {
+        storedAutomation = { ...handWritten, mode: "restart" };
+        const client = new HomeAssistantClient(
+          baseConfig,
+          exposing("light.kitchen_table", "sensor.kitchen_presence", "person.resident")
+        );
+        await expect(client.readAutomation("1700000000000")).resolves.toEqual({
+          alias: "Kitchen presence",
+          mode: "restart",
+          trigger: handWritten.triggers,
+          condition: handWritten.conditions,
+          action: handWritten.actions,
+          hidden: [],
+        });
+      });
+
+      it("reads the singular keys too, and a section that isn't there as empty", async () => {
+        storedAutomation = { id: "1", alias: "At 7", trigger: at7, action: kitchenOn };
+        const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+        await expect(client.readAutomation("1")).resolves.toMatchObject({
+          mode: "single",
+          trigger: [at7],
+          condition: [],
+          action: [kitchenOn],
+          hidden: [],
+        });
+      });
+
+      it("leaves out a section that names an unexposed entity, and only that one", async () => {
+        storedAutomation = handWritten;
+        const client = new HomeAssistantClient(
+          baseConfig,
+          exposing("light.kitchen_table", "person.resident")
+        );
+        const settings = await client.readAutomation("1700000000000");
+        expect(settings.hidden).toEqual(["trigger"]);
+        expect(settings).not.toHaveProperty("trigger");
+        expect(settings.action).toEqual(handWritten.actions);
+        expect(JSON.stringify(settings)).not.toContain("sensor.kitchen_presence");
+      });
+
+      it("leaves out a section that selects by area or device", async () => {
+        storedAutomation = {
+          ...handWritten,
+          conditions: [],
+          triggers: [at7],
+          actions: [{ service: "light.turn_on", target: { area_id: "kitchen" } }],
+        };
+        const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+        const settings = await client.readAutomation("1700000000000");
+        expect(settings.hidden).toEqual(["action"]);
+        expect(JSON.stringify(settings)).not.toContain("kitchen");
+      });
+
+      it("names the blueprint and none of its inputs", async () => {
+        storedAutomation = {
+          id: "1",
+          alias: "Motion light",
+          use_blueprint: { path: "homeassistant/motion_light.yaml", input: { light_target: { entity_id: "lock.front_door" } } },
+        };
+        const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+        const settings = await client.readAutomation("1");
+        expect(settings).toEqual({
+          alias: "Motion light",
+          mode: "single",
+          blueprint: "homeassistant/motion_light.yaml",
+          hidden: [],
+        });
+      });
+
+      it("shows it all when the list has no opinion", async () => {
+        storedAutomation = handWritten;
+        const client = new HomeAssistantClient(baseConfig, new AssistExposure(async () => null));
+        await expect(client.readAutomation("1700000000000")).resolves.toMatchObject({
+          trigger: handWritten.triggers,
+          hidden: [],
+        });
+      });
     });
   });
 
