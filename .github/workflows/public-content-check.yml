@@ -28,6 +28,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: false
+          # The scan only reads the checkout (git ls-files), so the job token
+          # has no reason to stay in .git/config.
+          persist-credentials: false
 
       - name: Scan tracked files
         run: .github/scripts/check-public-content.sh
