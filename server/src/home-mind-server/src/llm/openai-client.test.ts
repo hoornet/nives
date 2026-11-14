@@ -51,6 +51,7 @@ vi.mock("./tool-handler.js", () => ({
 import { OpenAIChatEngine } from "./openai-client.js";
 import { resetTokenCapCache } from "./token-cap.js";
 import { resetReasoningEffortCache } from "./reasoning-effort.js";
+import { FINAL_ANSWER_NUDGE, resetForcedAnswerCache } from "./forced-answer.js";
 import { handleToolCall, extractAndStoreFacts } from "./tool-handler.js";
 
 describe("OpenAIChatEngine", () => {
@@ -501,6 +502,61 @@ describe("OpenAIChatEngine", () => {
       expect(mockCreate).toHaveBeenCalledTimes(9);
       expect(mockCreate.mock.calls[8][0].tool_choice).toBe("none");
       expect(mockCreate.mock.calls[7][0]).not.toHaveProperty("tool_choice");
+    });
+
+    it("still gets a final answer from a model that refuses tool_choice none", async () => {
+      // Muse Ember (2026-11 scout): the forced answer came back as a 400 on both
+      // of its providers, so a long tool loop ended in an error, not a reply.
+      resetForcedAnswerCache();
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(console, "info").mockImplementation(() => {});
+      const refusal = Object.assign(
+        new Error('400 only "auto" is supported for `tool_choice`'),
+        { status: 400, param: "tool_choice" }
+      );
+      mockCreate.mockImplementation(async (body: { tool_choice?: string; messages: unknown[] }) => {
+        if (body.tool_choice === "none") throw refusal;
+        const last = body.messages[body.messages.length - 1] as { role: string; content: unknown };
+        if (last.role === "user" && last.content === FINAL_ANSWER_NUDGE) return answer("Here is what I found.");
+        return makeStream([
+          toolDelta({ index: 0, id: "call-1", function: { name: "get_state", arguments: "{}" } }, "tool_calls"),
+        ]);
+      });
+
+      const result = await engine.chat({ message: "x", userId: "user-1" });
+
+      expect(result.response).toBe("Here is what I found.");
+      expect(result.error).toBeUndefined();
+      // Eight tool rounds, the refused forced answer, then the nudged one.
+      expect(mockCreate).toHaveBeenCalledTimes(10);
+      expect(mockCreate.mock.calls[8][0].tool_choice).toBe("none");
+      expect(mockCreate.mock.calls[9][0]).not.toHaveProperty("tool_choice");
+    });
+
+    it("reports an error when the forced last turn still only asks for a tool", async () => {
+      // The nudged request may still come back with a tool call and no text.
+      // The loop has stopped, so the call is not run: that is no answer, and
+      // it must not look like a successful empty reply.
+      resetForcedAnswerCache();
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(console, "info").mockImplementation(() => {});
+      const refusal = Object.assign(
+        new Error('400 only "auto" is supported for `tool_choice`'),
+        { status: 400, param: "tool_choice" }
+      );
+      mockCreate.mockImplementation(async (body: { tool_choice?: string }) => {
+        if (body.tool_choice === "none") throw refusal;
+        return makeStream([
+          toolDelta({ index: 0, id: "call-1", function: { name: "get_state", arguments: "{}" } }, "tool_calls"),
+        ]);
+      });
+
+      const result = await engine.chat({ message: "x", userId: "user-1" });
+
+      expect(result.response).toBe("");
+      expect(result.error?.code).toBe("EMPTY_CONTENT");
+      expect(result.error?.hint).toMatch(/limit of lookups/);
+      expect(mockCreate).toHaveBeenCalledTimes(10);
     });
   });
 

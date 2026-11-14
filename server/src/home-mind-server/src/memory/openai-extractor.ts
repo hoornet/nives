@@ -24,7 +24,7 @@ export class OpenAIFactExtractor implements IFactExtractor {
       apiKey,
       baseURL: baseUrl,
       defaultHeaders: {
-        "HTTP-Referer": "https://nives.house",
+        "HTTP-Referer": "https://github.com/hoornet/nives",
         "X-OpenRouter-Title": "Nives",
         "X-OpenRouter-Categories": "personal-agent",
       },

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.10.0
+
+- **Nives Cloud is closing.** Nives Cloud closes on 1 December 2026, and its keys stop working that day. If you use a Nives Cloud key, set **LLM Mode** to `byok` and add your own key before then. Your memories, automations and settings stay as they are, and Nives posts a notification in Home Assistant with the steps. Until 1 December, Cloud keys keep working as before.
+- **Your own key is now the default.** New installs start on your own key with OpenRouter selected. With OpenRouter and no model chosen, Nives now uses Claude Haiku 5.5: it scored best in our home-control tests and costs a tenth of Claude Haiku 4.5, the previous default there. If you picked a model yourself, nothing changes.
+- **Voice and transcription work with your own OpenRouter key.** Set **Provider** to `openrouter` and transcription and the Slovene voices run on your own key; the settings stay where they were. The two standard Slovene voices move to the newer version of the same Microsoft voices, because the current version is retired at the end of December. They sound the same. Before release, Nives spoke a Slovene sentence in the new voice on an OpenRouter key and transcribed it back word for word.
+- **A long request ends in an answer.** When a request needs many lookups, Nives stops after a set number and answers with what it found. Some newer models refused that last step, so the request ended in an error. Nives now asks those models in a way they accept, and if a model still asks for more lookups instead of answering, Nives tells you it could not answer rather than staying silent.
+- The add-on no longer contacts the Nives Cloud site when it starts, and the balance notifications are gone along with the top-ups they pointed to. Any of them still showing, and the old out-of-credit notice, are cleared when the add-on starts. When a key runs out of credit, the message now points to your provider.
+- If the add-on's port is already taken, the server now stops with a clear message in the log instead of reporting itself ready.
+- The libraries Nives uses to reach the model providers are updated, including a security fix in the one it uses for web requests. The add-on's build no longer keeps GitHub credentials after it has fetched the code.
+- Before release, the main paths were checked with real requests, not only with the automated tests: a question that needed a device lookup was answered in Cloud mode and on your own Anthropic key with Claude Haiku 5.5, and the closing notice reached Home Assistant. That was on a test setup rather than a real Home Assistant, so if something behaves differently for you, tell us and we'll be happy to help. Home Assistant will ask for one restart, as with every update. Server 0.19.0.
+
 ## 2.9.0
 
 - **Nives can read what an automation does.** Ask what an automation does and it reads the triggers, conditions and actions rather than working from the name. When you ask for a change, it reads the automation first and keeps everything you did not ask to change.

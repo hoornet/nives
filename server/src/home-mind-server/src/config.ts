@@ -7,7 +7,7 @@ const ConfigSchema = z
     logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
 
     // LLM
-    // cloud = key managed via nives.house; byok = user's own key. Set by the
+    // cloud = a Nives Cloud key (closing 2026-12-01); byok = the user's own key. Set by the
     // add-on's options-to-env.sh; standalone deployments default to byok.
     llmMode: z.enum(["cloud", "byok"]).default("byok"),
     llmProvider: z.enum(["anthropic", "openai", "ollama"]).default("anthropic"),

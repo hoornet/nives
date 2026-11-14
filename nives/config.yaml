@@ -1,5 +1,5 @@
 name: "Nives"
-version: "2.9.0"
+version: "2.10.0"
 slug: "nives"
 description: "AI assistant with cognitive memory for Home Assistant"
 url: "https://github.com/hoornet/nives"
@@ -24,13 +24,13 @@ ports:
 memory: 768
 panel_icon: "mdi:brain"
 options:
-  llm_mode: "cloud"
+  llm_mode: "byok"
   cloud:
     api_key: ""
     transcription: false
     voice: "off"
   byok:
-    provider: "anthropic"
+    provider: "openrouter"
     api_key: ""
     model: ""
     base_url: ""

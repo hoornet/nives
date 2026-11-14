@@ -302,20 +302,20 @@ class NivesConversationAgent(ConversationEntity):
             "persistent_notification",
             "create",
             {
-                "title": "Nives — Out of balance",
+                "title": "Nives: out of credit",
                 "message": (
-                    "Nives has used up its available balance. "
-                    "Top up at nives.house — or, if you bring your own "
-                    "key, add credit with your provider — and Nives "
-                    "picks right back up."
+                    "Nives has used up the credit on its API key. "
+                    "Add credit with your provider and Nives picks right "
+                    "back up. A Nives Cloud key stops working on 1 December "
+                    "2026: switch LLM Mode to byok with your own key."
                 ),
-                "notification_id": "nives_usage_limit",
+                "notification_id": "nives_out_of_credit",
             },
         )
         intent_response = intent.IntentResponse(language=user_input.language)
         intent_response.async_set_speech(
-            "I'm out of balance. "
-            "Please top up at nives.house and I'll pick right back up."
+            "I'm out of credit. "
+            "Please add credit with your AI provider and I'll pick right back up."
         )
         return ConversationResult(response=intent_response, conversation_id=conversation_id)
 
@@ -377,20 +377,20 @@ class NivesConversationAgent(ConversationEntity):
                 "persistent_notification",
                 "create",
                 {
-                    "title": "Nives — Out of balance",
+                    "title": "Nives: out of credit",
                     "message": (
-                        "Nives has used up its available balance. "
-                        "Top up at nives.house — or, if you bring your own "
-                        "key, add credit with your provider — and Nives "
-                        "picks right back up."
+                        "Nives has used up the credit on its API key. "
+                        "Add credit with your provider and Nives picks right "
+                        "back up. A Nives Cloud key stops working on 1 December "
+                        "2026: switch LLM Mode to byok with your own key."
                     ),
-                    "notification_id": "nives_usage_limit",
+                    "notification_id": "nives_out_of_credit",
                 },
             )
             intent_response = intent.IntentResponse(language=user_input.language)
             intent_response.async_set_speech(
-                "I'm out of balance. "
-                "Please top up at nives.house and I'll pick right back up."
+                "I'm out of credit. "
+                "Please add credit with your AI provider and I'll pick right back up."
             )
             return ConversationResult(
                 response=intent_response,

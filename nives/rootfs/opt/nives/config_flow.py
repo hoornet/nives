@@ -25,7 +25,6 @@ from .const import (
     DEFAULT_SHARED_MEMORY,
     DEFAULT_USER_ID,
     API_HEALTH_ENDPOINT,
-    CLOUD_SIGNUP_URL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -171,7 +170,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=STEP_USER_DATA_SCHEMA,
-            description_placeholders={"cloud_url": CLOUD_SIGNUP_URL},
             errors=errors,
         )
 

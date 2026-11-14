@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Configure Nives",
-        "description": "Enter the URL of your Nives API server. Don't have a server? Get a hosted one at [{cloud_url}]({cloud_url}).",
+        "description": "Enter the URL of your Nives API server.",
         "data": {
           "api_url": "API URL",
           "api_token": "API Token (optional)",

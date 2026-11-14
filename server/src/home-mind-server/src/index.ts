@@ -23,7 +23,7 @@ import { createRouter } from "./api/routes.js";
 import { createSttService } from "./stt/stt-service.js";
 import { createTtsService } from "./tts/tts-service.js";
 import { MemoryCleanupJob } from "./jobs/memory-cleanup.js";
-import { BalanceWatchJob } from "./jobs/balance-watch.js";
+import { scheduleCloudClosingNotice } from "./jobs/cloud-closing-notice.js";
 
 // Load configuration
 const config = loadConfig();
@@ -174,7 +174,14 @@ app.get("/", (_req, res) => {
 });
 
 // Start server
-app.listen(config.port, () => {
+app.listen(config.port, (error?: Error) => {
+  // Express 5 hands a listen error (a port already in use) to this callback
+  // instead of throwing. Ignoring it printed "Ready" for a server that could
+  // never answer, while another process held the port.
+  if (error) {
+    console.error(`Could not listen on port ${config.port}: ${error.message}`);
+    process.exit(1);
+  }
   console.log(`
 ┌─────────────────────────────────────────┐
 │      Home Mind Server Started           │
@@ -195,20 +202,15 @@ Ready to accept requests at http://localhost:${config.port}
 const cleanupJob = new MemoryCleanupJob(memory, conversations, config.memoryCleanupIntervalHours);
 cleanupJob.start();
 
-// Watch the cloud balance (no-op in BYOK mode)
-const balanceJob = new BalanceWatchJob({
-  enabled: config.llmMode === "cloud" && config.llmProvider === "openai",
-  apiKey: config.openaiApiKey,
-  baseUrl: config.openaiBaseUrl,
-  ha,
-});
-balanceJob.start();
+// Nives Cloud closes on 2026-12-01: tell a Cloud-mode install how to switch
+// to its own key, and clear the old balance notifications in every mode.
+const cancelCloudNotice = scheduleCloudClosingNotice(ha, config.llmMode);
 
 // Graceful shutdown
 process.on("SIGTERM", () => {
   console.log("Shutting down...");
   cleanupJob.stop();
-  balanceJob.stop();
+  cancelCloudNotice();
   conversations.close();
   memory.close();
   process.exit(0);
@@ -217,7 +219,7 @@ process.on("SIGTERM", () => {
 process.on("SIGINT", () => {
   console.log("Shutting down...");
   cleanupJob.stop();
-  balanceJob.stop();
+  cancelCloudNotice();
   conversations.close();
   memory.close();
   process.exit(0);

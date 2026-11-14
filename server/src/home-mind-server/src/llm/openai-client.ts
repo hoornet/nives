@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { handleToolCall, extractAndStoreFacts, type ToolContext } from "./tool-handler.js";
 import { withTokenCap } from "./token-cap.js";
 import { withReasoningEffort } from "./reasoning-effort.js";
+import { FINAL_ANSWER_NUDGE, withForcedAnswer } from "./forced-answer.js";
 import { describeLongBatch } from "./long-task.js";
 import {
   readUsage,
@@ -79,7 +80,7 @@ export class OpenAIChatEngine implements IChatEngine {
       apiKey: config.openaiApiKey,
       baseURL: config.openaiBaseUrl,
       defaultHeaders: {
-        "HTTP-Referer": "https://nives.house",
+        "HTTP-Referer": "https://github.com/hoornet/nives",
         "X-OpenRouter-Title": "Nives",
         "X-OpenRouter-Categories": "personal-agent",
       },
@@ -265,9 +266,23 @@ export class OpenAIChatEngine implements IChatEngine {
     // so the HA integration can surface a useful hint instead of the generic
     // "I received your request but got no response." fallback. The `finish_reason`
     // from the final stream tells us which diagnostic applies.
-    const error = responseText === "" && result.toolCalls.length === 0
-      ? this.classifyEmptyResponse(result.finishReason, result.usage)
-      : undefined;
+    //
+    // Tool calls can only remain here on the forced last turn, where the loop
+    // has stopped and they are not run. A model that still asks for a tool
+    // instead of answering (possible when it refused tool_choice "none" and
+    // got the plain instruction) has given no answer, so say that rather than
+    // returning an empty reply that looks like success.
+    const error =
+      responseText !== ""
+        ? undefined
+        : result.toolCalls.length > 0
+          ? {
+              code: "EMPTY_CONTENT" as const,
+              hint:
+                "Nives reached its limit of lookups for one request and the model did not write an answer. " +
+                "Try asking for less at once, or try a different model.",
+            }
+          : this.classifyEmptyResponse(result.finishReason, result.usage);
 
     // A reply that ran out of room but did write something is the *common* case,
     // and it used to be delivered silently: the integration returns the text
@@ -362,7 +377,8 @@ export class OpenAIChatEngine implements IChatEngine {
   }> {
     const cap = this.maxOutputTokens(isVoice);
     const startedAt = Date.now();
-    const stream = await withTokenCap(this.config.llmModel, cap, (capParam) =>
+    const stream = await withForcedAnswer(this.config.llmModel, disableTools, (forced) =>
+      withTokenCap(this.config.llmModel, cap, (capParam) =>
       withReasoningEffort(
         this.config.llmModel,
         this.config.reasoningEffort,
@@ -371,11 +387,15 @@ export class OpenAIChatEngine implements IChatEngine {
             model: this.config.llmModel,
             ...capParam,
             ...reasoning,
-            messages,
+            // A model that refuses tool_choice "none" gets a plain instruction
+            // instead (forced-answer.ts).
+            messages: forced.nudge
+              ? [...messages, { role: "user" as const, content: FINAL_ANSWER_NUDGE }]
+              : messages,
             tools: OPENAI_TOOLS,
             // Keep the tool list in the request (history already references it) but
             // stop the model from issuing more calls.
-            ...(disableTools ? { tool_choice: "none" as const } : {}),
+            ...(forced.tool_choice ? { tool_choice: forced.tool_choice } : {}),
             stream: true,
             // Ask for the token breakdown. Without this a streamed call reports no
             // usage at all, which is why a cap being spent entirely on reasoning
@@ -390,6 +410,8 @@ export class OpenAIChatEngine implements IChatEngine {
           }),
         this.client.baseURL
       )
+      ),
+      this.client.baseURL
     );
 
     let text = "";
