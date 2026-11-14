@@ -100,7 +100,6 @@ TOKEN_FILE_RELPATH = "nives/.api_token"
 # behaviour: auth falls back to off rather than to broken.
 TOKEN_ACK_RELPATH = "nives/.api_token.ack"
 
-CLOUD_SIGNUP_URL = "https://nives.house"
 
 # The "Restart required" repair issue raised when the add-on has copied newer
 # integration files than the ones Home Assistant is running (HACS-style, with

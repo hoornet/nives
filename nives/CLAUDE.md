@@ -8,7 +8,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 - A conversation server (Node.js/Express, hard fork of `home-mind`) — AI conversation engine with HA tool integration
 - **Shodh Memory** (Rust) — Cognitive memory with semantic search, Hebbian learning, and natural decay
 
-Nives is the paid product, distributed as a single HA add-on. Users install it from the add-on store, configure either Nives Cloud (managed) or BYOK (their own API key), and get a working AI assistant for their smart home.
+Nives is distributed as a single HA add-on. Users install it from the add-on store, add their own API key (BYOK), and get a working AI assistant for their smart home. Nives Cloud, the managed option, closes on 2026-12-01; its keys stop working that day.
 
 > Previously released as **HomeMind PRO** (v1.x). Renamed to **Nives** at v2.0.0 — see the addon's `CHANGELOG.md` for the migration story.
 
@@ -62,8 +62,8 @@ HA Core
 
 ### Two LLM Modes
 
-- **Cloud** (`llm_mode: "cloud"`): Routes LLM calls through the managed Nives Cloud service. User only needs a Nives Cloud API key. Sets `LLM_PROVIDER=openai` + `OPENAI_BASE_URL=<cloud_endpoint>` + `OPENAI_API_KEY=<cloud_key>`.
-- **BYOK** (`llm_mode: "byok"`): User provides their own Anthropic/OpenAI/Ollama credentials. Direct API calls, no proxy involved.
+- **Cloud** (`llm_mode: "cloud"`): a Nives Cloud key, closing 2026-12-01. Sets `LLM_PROVIDER=openai` + `OPENAI_BASE_URL=<cloud_endpoint>` + `OPENAI_API_KEY=<cloud_key>` and a fixed preset; nothing is fetched at boot since 2.10.0. The server posts a notification explaining the switch to BYOK. Kept in the schema so existing options stay valid; remove it in a later release.
+- **BYOK** (`llm_mode: "byok"`, the default since 2.10.0): user provides their own Anthropic/OpenAI/OpenRouter/Mistral/Ollama credentials. Direct API calls, no proxy involved. With Provider `openrouter`, the voice and transcription options work on the user's key.
 
 ### HA Integration (Automatic)
 

@@ -160,11 +160,13 @@ LLM config:
 
 Optional: `PORT` (default 3100), `API_TOKEN` (bearer token for auth — when set, all endpoints except health require it), `HA_SKIP_TLS_VERIFY`, `MEMORY_TOKEN_LIMIT` (default 3000), `LOG_LEVEL`, `CONVERSATION_STORAGE` (`memory` | `sqlite`, default `memory`), `CONVERSATION_DB_PATH` (default `/data/conversations.db`, only used when `CONVERSATION_STORAGE=sqlite`), `CUSTOM_PROMPT` (server-level default custom system prompt), `LAYOUT_FROM_EXPOSED` (default `true`; build the room map from the entities exposed to Assist), `TOOLS_FROM_EXPOSED` (default `true`; bound `get_state` / `get_entities` / `search_entities` / `get_history` / `call_service` to the entities exposed to Assist; `false` lets them reach the whole house), `TZ` (timezone for the Docker container, default `Europe/Prague` in docker-compose; Node.js uses this for `toLocaleString()` so the LLM sees correct local time)
 
-### Nives Cloud Mode
+### Nives Cloud Mode (closing)
 
-There is **no proxy**. In cloud mode `options-to-env.sh` sets `LLM_PROVIDER=openai` plus a base URL and the user's provisioned key, and the add-on calls that endpoint directly — nothing in the request path goes through us. Read `rootfs/usr/local/bin/options-to-env.sh` for the exact values; they are not restated here, because a doc that repeats them serves no purpose the script does not already serve.
+Nives Cloud closes on 2026-12-01 and its keys stop working that day. Until then cloud mode keeps working: `options-to-env.sh` sets `LLM_PROVIDER=openai` plus a base URL, the user's Cloud key and a fixed model preset. Since 2.10.0 nothing is fetched at boot (the old config call sent the key to the Cloud site on every start). In cloud mode the server posts one Home Assistant notification explaining how to switch to the user's own key (`jobs/cloud-closing-notice.ts`, which replaced the balance watch and dismisses its old notifications).
 
-The model is not hardcoded: at boot the add-on asks `GET https://nives.house/api/addon/config` (bearer = the user's key) which returns `@preset/nives-<tier>`, so the model lineup is managed server-side with no add-on release. Bounded and failure-safe — an 8s timeout, falling back to `@preset/nives-standard` if the cloud is briefly unreachable. Chat itself never goes through nives.house.
+Voice and transcription also run on the user's own key when Provider is `openrouter` (`options-to-env.sh`).
+
+The forced final answer at the tool-loop cap sends `tool_choice: "none"`; a model that refuses it (Muse Ember, 2026-11) is remembered per endpoint and model and gets a plain "answer now" instruction instead (`llm/forced-answer.ts`).
 
 STT (optional): `STT_PROVIDER` (`openai` | `none`, default `none`), `STT_API_KEY` (overrides `OPENAI_API_KEY`), `STT_BASE_URL` (custom Whisper-compatible endpoint), `STT_MODEL` (default `whisper-1`)
 

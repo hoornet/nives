@@ -44,11 +44,10 @@ Reading one sensor back to you is easy. Reasoning across all of them, over the w
 - **It warns you about the traps before you say yes.** An automation with no conditions will run regardless of who's home. A fixed-time trigger checks the temperature once at that moment and never looks again. An edit that would strip away every condition is worth a second look. Nives says all of this while you can still change your mind, and tells you which fields an edit leaves untouched.
 - **Works inside your automations.** Nives is also a Home Assistant **AI Task** provider: call `ai_task.generate_data` from any automation to get an answer or structured data, reasoned with your home's context. It can even look at a **camera snapshot** and tell you what matters (with a vision-capable model), which makes for smarter, low-false-alarm camera and doorbell alerts.
 - **Reachable from scripts and automations.** `conversation.process` works against the Nives agent without a conversation id, so a script or automation can hold a real back-and-forth, confirmations included.
-- **It can do the listening too**, if you use a key from Nives Cloud. Optional, off by default. [See below](#using-it-by-voice).
-- **It tells you before the balance runs out.** On a Nives Cloud key, Nives posts a Home Assistant notification when roughly three days of typical use are left, and a clearer one if it does run dry. Both clear themselves after a top-up. Keys you bring yourself are never watched.
+- **It can do the listening too**, with your own OpenRouter key. Optional, off by default. [See below](#using-it-by-voice).
 - **Your memories are stored on your machine.** The memory database lives on your Home Assistant box, not ours, and there's no telemetry. (To answer you, Nives does send the *relevant* memories plus your home layout to the model with each request. The add-on docs spell out exactly what goes where. Want none of it to leave the house? Run a local model via Ollama.)
 - **The add-on's own API is protected.** A token is generated on first start and kept on your machine, so nothing else running on your Home Assistant box can talk to your assistant, drive your devices through it, or wipe what it remembers.
-- **Two ways to power it.** Managed **Nives Cloud**, or **bring your own key**. Both run the exact same on-device server and memory; only the AI endpoint differs.
+- **Runs on your own key.** Anthropic, OpenAI, OpenRouter, Mistral, or a local Ollama model. Whichever you pick, the same server and memory run on your own machine; only the AI endpoint differs.
 
 ## Teach it, then change your mind
 
@@ -71,7 +70,7 @@ Nives works with whatever Assist pipeline you already have: a Voice PE puck, ano
 Speech-to-text happens *before* Nives ever sees your words, and it's where most voice frustration actually starts. Engines running on your own box are excellent at English on decent hardware, but on a small machine they struggle with names (poor "Nives" comes back as *News*, *Knives* or *Nieves*) and with languages other than English. Two things help:
 
 - **Nives answers to its own name even when the microphone mangles it.** A request that opens with one of the common mishearings is understood as its name and answered normally, with no fuss made about it. Words in the middle of a sentence keep their ordinary meaning, so adding knives to the shopping list is still about knives.
-- **Or you can let Nives do the listening.** With a key from Nives Cloud, switch **Transcription** on in the add-on's Cloud settings and restart. A couple of minutes later Nives appears as a **Speech-to-text** choice under Settings → Voice assistants, transcribing from the same balance your conversations already use. Listening is inexpensive next to thinking: a spoken command costs a small fraction of the reply it produces. Your pipeline's language is passed along, so a short command in your own language is understood rather than guessed at.
+- **Or you can let Nives do the listening.** With your own OpenRouter key, switch **Transcription** on in the add-on's settings and restart. A couple of minutes later Nives appears as a **Speech-to-text** choice under Settings → Voice assistants, transcribing on the same key your conversations already use. Listening is inexpensive next to thinking: a spoken command costs a small fraction of the reply it produces. Your pipeline's language is passed along, so a short command in your own language is understood rather than guessed at.
 
 > **What that second one changes about your privacy, stated plainly.** With Transcription off, only your written request and your home's device list leave the house. With it on, the audio of what you say is sent to be transcribed as well. That is exactly why it stays off until you choose it. Turn it back off and Nives steps out of the Speech-to-text list on its own within a couple of minutes, handing your pipeline back to whichever engine it used before.
 
@@ -90,21 +89,9 @@ Two services share that container:
 
 ## Choosing how to power Nives
 
-Nives needs a language model to do the thinking. You have two options, picked in the add-on's **Configuration** tab.
+Nives needs a language model to do the thinking, and it runs on **your own** provider key: Anthropic, OpenAI, OpenRouter, Mistral, or a local Ollama endpoint, picked in the add-on's **Configuration** tab. Nothing to buy from us, ever. Not sure where to start? An OpenRouter key with Claude Haiku 5.5, the default there, is what we'd pick: it is good at running a home and inexpensive.
 
-### Nives Cloud
-
-One key, and choosing a model stops being your problem. We keep testing the field and run **the best model for the job, always current**, swapping it on our side when a better one turns up or ours gets retired, so the assistant improves without you installing or changing a thing.
-
-It's also where the extras live, like optional transcription, because those need a model of their own picked and paid for per job rather than per conversation.
-
-**New Cloud sign-ups are paused at the moment.** Existing keys keep working exactly as before, top-ups included. If you'd like to know when they reopen, write to hello@nives.house.
-
-In the meantime **Bring Your Own Key** below is free, does everything the managed path does, and is the way to run Nives today.
-
-### Bring Your Own Key (BYOK), for tinkerers
-
-Prefer full control? Run Nives with **your own** provider key (Anthropic, OpenAI, OpenRouter, Mistral, or a local Ollama endpoint) and pick your own model. Nothing to buy from us, ever.
+> **Nives Cloud is closing.** Its keys stop working on 1 December 2026. If you use one, set **LLM Mode** to `byok` and add your own key before then; your memories, automations and settings stay as they are.
 
 A few honest notes so it goes smoothly:
 
@@ -128,7 +115,7 @@ Or manually:
 2. Click the **⋮** menu (top-right) → **Repositories**.
 3. Add this URL: `https://github.com/hoornet/nives`
 4. Find **Nives** in the store and click **Install**.
-5. Open the **Configuration** tab, choose **Cloud** or **BYOK** (see above), enter your key, and **Save**.
+5. Open the **Configuration** tab, choose your **Provider**, paste your key (see above), and **Save**.
 6. **Start** the add-on.
 
 Then point Home Assistant at it: **Settings → Voice assistants → (your assistant) → Conversation agent → Nives**. Now just talk to your home. Type in Assist, or speak if you've set up a voice pipeline.
@@ -150,12 +137,12 @@ What has actually diverged:
 | **HA tools** | 6 (read state, list/search entities, call services, history, forget a memory) | 11: those plus automation **create/list/update/delete** and service discovery, behind a server-enforced confirmation gate |
 | **AI Task** | | `ai_task.generate_data` (text + structured output), usable inside your automations |
 | **Vision** | | camera snapshots as input, so "is this expected?" on a doorbell frame |
-| **Speech-to-text** | your pipeline's own engine | same, plus optional cloud transcription on a Nives Cloud key |
+| **Speech-to-text** | your pipeline's own engine | same, plus optional transcription on your own OpenRouter key |
 | **Voice satellites** | | sets `continue_conversation` after a question, so the satellite reopens the mic |
 | **arm64 / Raspberry Pi** | official Shodh Docker image is amd64-only | add-on ships arm64 binaries, so it works on a Pi or arm64 HAOS out of the box |
-| **Models** | BYOK: Anthropic / OpenAI / OpenRouter / Mistral / Ollama | same BYOK, plus optional managed Nives Cloud |
+| **Models** | your own key: Anthropic / OpenAI / OpenRouter / Mistral / Ollama | the same |
 
-Both are AGPL-3.0 with open repos, and both are maintained. **The assistant itself is never gated**: every memory, automation, and AI Task feature works the same on BYOK, and that path is free and never touches our servers. Cloud exists purely as the less-tinkering option. (The one Cloud-only extra is optional transcription, because it's billed from your balance; on BYOK you use Home Assistant's own speech-to-text, which is already there.) If you enjoy owning every moving part, home-mind is built for you; if you'd rather it just work, that's Nives.
+Both are AGPL-3.0 with open repos, and both are maintained. Both run on your own key, and neither ever touches our servers. If you enjoy owning every moving part, home-mind is built for you; if you'd rather it just work, that's Nives.
 
 ## Beyond Home Assistant
 
@@ -163,7 +150,7 @@ Both are AGPL-3.0 with open repos, and both are maintained. **The assistant itse
 
 ## Coming from HomeMind PRO?
 
-Nives is the same add-on under a new name, since v2.0.0: same memory layer, same Cloud and BYOK modes, same behaviour. The name is Slovenian, from the Latin *nives*, "snows". It's pronounced **NEE-ves**, and it's a good deal easier to say to a voice assistant than an acronym.
+Nives is the same add-on under a new name, since v2.0.0: same memory layer, same behaviour. The name is Slovenian, from the Latin *nives*, "snows". It's pronounced **NEE-ves**, and it's a good deal easier to say to a voice assistant than an acronym.
 
 Switching over is a clean install rather than an update, because the add-on's underlying slug changed:
 
@@ -171,7 +158,7 @@ Switching over is a clean install rather than an update, because the add-on's un
 2. Copy your configuration across (your key and any options).
 3. Start Nives, check it answers, then uninstall HomeMind PRO.
 
-Memories and conversation history don't carry over, so Nives starts fresh and learns you again. Your account and Cloud balance are unaffected.
+Memories and conversation history don't carry over, so Nives starts fresh and learns you again.
 
 The [v2.0.0 changelog](nives/CHANGELOG.md) has the full detail.
 
@@ -197,7 +184,6 @@ If something ships because you reported it or built it, you get named here and i
 Nives is in early access and we'd genuinely love to hear from you.
 
 - **Bugs / feature ideas:** open an [issue](https://github.com/hoornet/nives/issues).
-- **Cloud or billing questions:** hello@nives.house.
 
 ## License
 

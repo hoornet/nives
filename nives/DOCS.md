@@ -9,7 +9,7 @@ Nives is in early access. It's a convenience assistant for everyday things — a
 ## Quick Start
 
 1. Install this add-on
-2. Choose your LLM mode: **Cloud** or **BYOK** (see sections below)
+2. Add your own API key (see [Setup](#setup) below)
 3. Start the add-on
 4. Restart Home Assistant once when Nives asks (a notification on first install; after updates, a one-click repair under **Settings > Repairs**) — this loads the companion integration
 5. Go to **Settings > Voice assistants** and select **Nives** as your conversation agent
@@ -32,28 +32,20 @@ Nives bundles two services in one add-on:
 
 ---
 
-## Cloud Mode
+## Nives Cloud is closing
 
-Use Nives Cloud, a managed AI service on a prepaid balance. No subscription, no API key management, no surprise bills.
+Nives Cloud closes on 1 December 2026, and its keys stop working that day. If you use a Nives Cloud key, switch to your own key before then: set **LLM Mode** to `byok` and follow [Setup](#setup) below. Your memories, automations and settings stay as they are, and Nives posts a notification in Home Assistant with the same steps.
 
-**New Cloud sign-ups are paused at the moment.** Existing keys keep working exactly as before, top-ups included. If you'd like to know when they reopen, write to hello@nives.house. In the meantime, [BYOK mode](#byok-mode-bring-your-own-key) below is free and is the way to run Nives today.
+---
 
-### Setup (with an existing key)
+## Voice and transcription (optional)
 
-1. Copy your **Nives API Key** from your nives.house dashboard
-2. In the add-on Configuration tab:
-   - Set **LLM Mode** to `cloud`
-   - Paste your key into **Nives API Key**
-3. Save and start the add-on
-
-### Cloud Configuration
+Nives can speak and listen for your Assist pipeline. Both work with your own OpenRouter key (**LLM Mode** `byok`, **Provider** `openrouter`). You'll find both settings in the add-on's Configuration tab.
 
 | Option | Description |
 |--------|-------------|
-| LLM Mode | Set to `cloud` |
-| Nives API Key | Your key from nives.house |
-| Transcription | Off by default. Turn it on to let Nives do the listening too — see below |
-| Voice | Leave it on `off` to keep the voice your Assist pipeline already uses, which is right for English and most languages. Pick a voice only when Nives offers a better one for your language (today: Slovene) — see below |
+| Transcription | Off by default. Turn it on to let Nives do the listening too (see below) |
+| Voice | Leave it on `off` to keep the voice your Assist pipeline already uses, which is right for English and most languages. Pick a voice only when Nives offers a better one for your language (today: Slovene; see below) |
 
 ### Let Nives do the speaking (optional)
 
@@ -70,8 +62,7 @@ appears as a **Text-to-speech** choice in your Assist pipeline (Settings → Voi
 assistants), speaking in a voice native to that language rather than a foreign
 one sounding out the words. (In a hurry? Reloading the Nives integration under
 Settings → Devices & services makes it appear at once.) Speaking is paid from
-the same balance as your conversations, and costs a fraction of a cent per
-reply.
+the same key as your conversations, and costs a fraction of a cent per reply.
 
 Three voices are available today, all Slovene:
 
@@ -113,8 +104,8 @@ especially — and with languages other than English.
 
 Turn **Transcription** on and restart the add-on. Within a couple of minutes
 Nives appears as a **Speech-to-text** choice in your Assist pipeline (Settings →
-Voice assistants), using high-quality transcription paid from the same balance
-as your conversations. (In a hurry? Reloading the Nives integration under
+Voice assistants), using high-quality transcription paid from the same key as
+your conversations. (In a hurry? Reloading the Nives integration under
 Settings → Devices & services makes it appear at once.) Listening is
 inexpensive next to thinking: a typical spoken command costs a small fraction of
 the reply it produces. Nives is told which language your pipeline speaks, so
@@ -131,10 +122,6 @@ short commands in your own language are understood rather than guessed at.
 Prefer to keep audio on your own hardware? Leave this off and use a local engine
 in the pipeline; Nives works exactly the same, it just receives the words rather
 than the sound.
-
-### Balance heads-up
-
-Nives keeps an eye on your remaining balance. When about three days of typical use are left, it posts a Home Assistant notification inviting you to top up at [nives.house](https://nives.house); if the balance runs out, a clearer one says so. After a top-up both clear on their own — nothing to configure. This applies to Cloud mode only; keys you bring yourself are never watched.
 
 ---
 
@@ -156,7 +143,7 @@ Going deep on local or Ollama setups? The open-source [home-mind](https://github
    - Set **LLM Mode** to `byok`
    - Set **Provider** to your chosen provider
    - Paste your **API Key**
-   - Set a **Model** — optional for Anthropic, OpenAI, OpenRouter and Mistral (each has a sensible default); **required for Ollama**, where you must enter the model you pulled (e.g. `qwen3:8b`)
+   - Set a **Model** — optional for Anthropic, OpenAI, OpenRouter and Mistral (each has a sensible default; on OpenRouter it is Claude Haiku 5.5); **required for Ollama**, where you must enter the model you pulled (e.g. `qwen3:8b`)
 3. Save and start the add-on
 
 ### BYOK Configuration
@@ -283,7 +270,7 @@ To answer usefully, Nives has to tell the model about your home. Each request in
 - the capabilities of your lights
 - the results of anything it looks up to answer you (device states, history)
 
-This is true in **both** Cloud and BYOK mode — the difference is only *which* provider receives it. In Cloud mode that's the model provider we route to; in BYOK mode it's whichever provider's key you entered, and we're not in the path at all. If you'd rather none of it left your network, run a local model via Ollama in BYOK mode (see the note above about local setups).
+It goes to whichever provider's key you entered, and we're not in the path at all. If you'd rather none of it left your network, run a local model via Ollama in BYOK mode (see the note above about local setups).
 
 ## Troubleshooting
 
@@ -296,4 +283,3 @@ This is true in **both** Cloud and BYOK mode — the difference is only *which* 
 ## Support
 
 - [GitHub Issues](https://github.com/hoornet/nives/issues)
-- [nives.house](https://nives.house)
