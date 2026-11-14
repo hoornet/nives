@@ -309,7 +309,7 @@ class NivesConversationAgent(ConversationEntity):
                     "back up. A Nives Cloud key stops working on 1 December "
                     "2026: switch LLM Mode to byok with your own key."
                 ),
-                "notification_id": "nives_usage_limit",
+                "notification_id": "nives_out_of_credit",
             },
         )
         intent_response = intent.IntentResponse(language=user_input.language)
@@ -384,7 +384,7 @@ class NivesConversationAgent(ConversationEntity):
                         "back up. A Nives Cloud key stops working on 1 December "
                         "2026: switch LLM Mode to byok with your own key."
                     ),
-                    "notification_id": "nives_usage_limit",
+                    "notification_id": "nives_out_of_credit",
                 },
             )
             intent_response = intent.IntentResponse(language=user_input.language)

@@ -54,14 +54,23 @@ describe("postCloudClosingNotice", () => {
     expect(dismissed(ha)).toEqual([...RETIRED_NOTIFICATION_IDS, CLOUD_CLOSING_NOTIFICATION_ID]);
   });
 
-  it("does not fail when there was nothing to dismiss", async () => {
+  it("reports a failed dismissal so the caller can retry", async () => {
+    // Home Assistant answers a dismissal of an unknown id with success, so a
+    // failure means it was unreachable; swallowing it left old notices behind.
     const ha = fakeHa();
     ha.callService.mockImplementation(async (_d: string, service: string) => {
-      if (service === "dismiss") throw new Error("not found");
+      if (service === "dismiss") throw new Error("HA unreachable");
     });
 
-    expect(await postCloudClosingNotice(ha, "cloud")).toBe(true);
-    expect(created(ha)).toHaveLength(1);
+    await expect(postCloudClosingNotice(ha, "byok")).rejects.toThrow("HA unreachable");
+  });
+
+  it("clears the old out-of-credit notice that pointed at the Cloud site", async () => {
+    const ha = fakeHa();
+
+    await postCloudClosingNotice(ha, "byok");
+
+    expect(dismissed(ha)).toContain("nives_usage_limit");
   });
 });
 
@@ -93,6 +102,25 @@ describe("scheduleCloudClosingNotice", () => {
     await vi.advanceTimersByTimeAsync(60_000); // and nothing more after that
 
     expect(created(ha)).toHaveLength(3);
+  });
+
+  it("retries the clean-up on your own key until Home Assistant answers", async () => {
+    const ha = fakeHa();
+    let failures = 1;
+    ha.callService.mockImplementation(async (_d: string, service: string) => {
+      if (service === "dismiss" && failures-- > 0) throw new Error("HA not ready");
+    });
+
+    scheduleCloudClosingNotice(ha, "byok", { delayMs: 1000, retryMs: 5000, attempts: 6 });
+    await vi.advanceTimersByTimeAsync(1000); // first try fails at the first dismissal
+    await vi.advanceTimersByTimeAsync(5000); // second try clears everything
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    const ids = dismissed(ha);
+    for (const id of [...RETIRED_NOTIFICATION_IDS, CLOUD_CLOSING_NOTIFICATION_ID]) {
+      expect(ids.filter((x) => x === id).length).toBeGreaterThanOrEqual(1);
+    }
+    expect(created(ha)).toHaveLength(0);
   });
 
   it("can be cancelled before it runs", async () => {

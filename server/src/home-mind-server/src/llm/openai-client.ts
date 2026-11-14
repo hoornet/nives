@@ -266,9 +266,23 @@ export class OpenAIChatEngine implements IChatEngine {
     // so the HA integration can surface a useful hint instead of the generic
     // "I received your request but got no response." fallback. The `finish_reason`
     // from the final stream tells us which diagnostic applies.
-    const error = responseText === "" && result.toolCalls.length === 0
-      ? this.classifyEmptyResponse(result.finishReason, result.usage)
-      : undefined;
+    //
+    // Tool calls can only remain here on the forced last turn, where the loop
+    // has stopped and they are not run. A model that still asks for a tool
+    // instead of answering (possible when it refused tool_choice "none" and
+    // got the plain instruction) has given no answer, so say that rather than
+    // returning an empty reply that looks like success.
+    const error =
+      responseText !== ""
+        ? undefined
+        : result.toolCalls.length > 0
+          ? {
+              code: "EMPTY_CONTENT" as const,
+              hint:
+                "Nives reached its limit of lookups for one request and the model did not write an answer. " +
+                "Try asking for less at once, or try a different model.",
+            }
+          : this.classifyEmptyResponse(result.finishReason, result.usage);
 
     // A reply that ran out of room but did write something is the *common* case,
     // and it used to be delivered silently: the integration returns the text

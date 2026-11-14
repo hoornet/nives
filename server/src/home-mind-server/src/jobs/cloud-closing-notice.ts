@@ -6,13 +6,18 @@ import type { HomeAssistantClient } from "../ha/client.js";
  * how to switch to its own key, so nobody finds out from a failing assistant.
  *
  * This replaces the balance watch: with top-ups closed, its "top up" advice
- * had nowhere left to send people. Its notifications are dismissed here too,
- * in every mode, so an old one does not linger after the update.
+ * had nowhere left to send people. Its notifications, and the integration's
+ * old out-of-credit notice that also pointed at the Cloud site, are dismissed
+ * here too, in every mode, so none of them lingers after the update.
  */
 
 export const CLOUD_CLOSING_NOTIFICATION_ID = "nives_cloud_closing";
-/** The balance watch's notification ids (removed in 2.10.0). */
-export const RETIRED_NOTIFICATION_IDS = ["nives_low_balance", "nives_balance_paused"];
+/**
+ * Notification ids whose text sent people to the Cloud site: the balance
+ * watch's two (removed in 2.10.0) and the integration's out-of-credit notice,
+ * which now posts under `nives_out_of_credit` instead.
+ */
+export const RETIRED_NOTIFICATION_IDS = ["nives_low_balance", "nives_balance_paused", "nives_usage_limit"];
 
 export const CLOUD_CLOSING_DATE = new Date("2026-12-01T00:00:00Z");
 
@@ -36,18 +41,19 @@ export function cloudClosingMessage(now: Date = new Date()): { title: string; me
 
 type Notifier = Pick<HomeAssistantClient, "callService">;
 
+/**
+ * Home Assistant treats dismissing an id it does not have as a no-op, so an
+ * error here means Home Assistant could not be reached or refused the call.
+ * Let it through: the scheduler retries, and an old notice is not left behind.
+ */
 async function dismiss(ha: Notifier, id: string): Promise<void> {
-  try {
-    await ha.callService("persistent_notification", "dismiss", undefined, { notification_id: id });
-  } catch {
-    // Dismissing something that is not there is not a problem.
-  }
+  await ha.callService("persistent_notification", "dismiss", undefined, { notification_id: id });
 }
 
 /**
  * Clear the retired notifications and, in Cloud mode, post the closing notice
- * (or clear it once the user has switched). Throws only when posting fails,
- * so the caller can retry.
+ * (or clear it once the user has switched). Throws when any call to Home
+ * Assistant fails, so the caller can retry.
  */
 export async function postCloudClosingNotice(
   ha: Notifier,

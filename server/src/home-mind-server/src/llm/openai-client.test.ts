@@ -532,6 +532,32 @@ describe("OpenAIChatEngine", () => {
       expect(mockCreate.mock.calls[8][0].tool_choice).toBe("none");
       expect(mockCreate.mock.calls[9][0]).not.toHaveProperty("tool_choice");
     });
+
+    it("reports an error when the forced last turn still only asks for a tool", async () => {
+      // The nudged request may still come back with a tool call and no text.
+      // The loop has stopped, so the call is not run: that is no answer, and
+      // it must not look like a successful empty reply.
+      resetForcedAnswerCache();
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(console, "info").mockImplementation(() => {});
+      const refusal = Object.assign(
+        new Error('400 only "auto" is supported for `tool_choice`'),
+        { status: 400, param: "tool_choice" }
+      );
+      mockCreate.mockImplementation(async (body: { tool_choice?: string }) => {
+        if (body.tool_choice === "none") throw refusal;
+        return makeStream([
+          toolDelta({ index: 0, id: "call-1", function: { name: "get_state", arguments: "{}" } }, "tool_calls"),
+        ]);
+      });
+
+      const result = await engine.chat({ message: "x", userId: "user-1" });
+
+      expect(result.response).toBe("");
+      expect(result.error?.code).toBe("EMPTY_CONTENT");
+      expect(result.error?.hint).toMatch(/limit of lookups/);
+      expect(mockCreate).toHaveBeenCalledTimes(10);
+    });
   });
 
   describe("reasoning_effort", () => {
