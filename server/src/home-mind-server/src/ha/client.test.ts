@@ -1348,7 +1348,9 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
         "{{ is_state('light.kitchen_table' | replace('light', 'x'), 'on') }}",
         "{{ state_attr('light.kitchen_table'[:0] ~ 'x', 'y') }}",
       ]) {
-        await expect(create(client, say(template))).rejects.toThrow(/uses something you may not use/);
+        await expect(create(client, say(template))).rejects.toThrow(
+          /uses something you may not use|may not contain \{% %\}/
+        );
       }
       expect(wroteAutomation()).toBe(false);
       for (const template of [
@@ -1356,6 +1358,7 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
         "{{ state_translated('sensor.kitchen_presence') }}",
         "{{ is_state('sun.sun', 'above_horizon') }}",
         "{{ state_attr(trigger.entity_id, 'friendly_name') }}",
+        "the distance is {{ states('sensor.kitchen_presence') }} metres",
       ]) {
         await create(client, say(template));
       }
@@ -1435,6 +1438,16 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       await expect(
         client.callServiceAsAssistant("script", "good_night", undefined, { light: "light.kitchen_table_1" })
       ).rejects.toThrow(/light\.kitchen_table_1 is not available to you/);
+      await expect(
+        client.callServiceAsAssistant("script", "turn_on", "script.good_night", {
+          variables: { entity_id: "light.kitchen_table_1" },
+        })
+      ).rejects.toThrow(/light\.kitchen_table_1 is not available to you/);
+      await expect(
+        client.callServiceAsAssistant("script", "turn_on", "script.good_night", {
+          variables: { area_id: "kitchen" },
+        })
+      ).rejects.toThrow(/Targeting by area_id is not available/);
       expect(calls.some((u) => u.includes("/api/services/script/"))).toBe(false);
     });
 

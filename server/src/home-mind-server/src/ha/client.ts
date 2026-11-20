@@ -558,9 +558,25 @@ export class HomeAssistantClient {
         if (exposed === null) throw new Error(exposureUnavailableMessage());
         if (exposed.size === 0) throw new Error(nothingExposedMessage());
       }
-      // An entity can also be named inside the fields (a script's field, an id
-      // in a url or a message): checked like the mentions in an automation.
-      await this.requireExposedMentions(collectReach(payload, undefined, true).mentioned);
+      // Entities and areas can also be named deeper in the fields (a script's
+      // variables, an id in a url or a message): checked like an automation's.
+      const reach = collectReach(payload, undefined, true);
+      const [indirect] = reach.indirect;
+      if (indirect) {
+        const key = indirect.slice(0, indirect.indexOf("="));
+        throw new Error(
+          `Targeting by ${key} is not available to you: only entities the user exposed to the ` +
+            `assistant may be controlled. Call the service with the exposed entity_ids instead.`
+        );
+      }
+      if (reach.named.has("all")) {
+        throw new Error(
+          `entity_id "all" is not available to you: it reaches entities the user has not exposed. ` +
+            `Call the service with the exposed entity_ids instead.`
+        );
+      }
+      await this.requireExposed(...reach.named);
+      await this.requireExposedMentions(reach.mentioned);
     }
     return this.callService(domain, service, entityId, data);
   }
