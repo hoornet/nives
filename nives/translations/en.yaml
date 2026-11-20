@@ -109,8 +109,12 @@ configuration:
       Assistant's own assistant. An exposed group still controls all of its
       members. Voices never need exposing, but the speaker an announcement
       plays on does. The automations Nives writes for you follow the same limit.
-      Something you expose can be used straight away. Turn this off to let
-      Nives reach every entity in the house again.
+      Something you expose can be used straight away. If nothing is exposed,
+      Nives can reach nothing. Turn this off to let Nives reach every entity in
+      the house. Either way, Nives sticks to everyday device control and never
+      restarts Home Assistant, reboots the host, manages add-ons or backups, or
+      runs commands; to let it run something more, put it in a script and
+      expose the script.
   layout_domains:
     name: Room map entity types
     description: >-

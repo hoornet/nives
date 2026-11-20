@@ -93,8 +93,9 @@ function noteForgetTargets(ctx: ToolContext | undefined, ...contents: string[]):
  * records a preview and returns confirmation_required WITHOUT acting. It only lets
  * execution proceed when the SAME tool is called with the SAME (normalized)
  * arguments in a LATER turn — i.e. after the user has replied "yes". No token is
- * carried (tool results aren't persisted to history). When there's no conversation
- * continuity (no conversationId/turnId), it falls back to direct execution.
+ * carried (tool results aren't persisted to history). Without a conversation
+ * (no conversationId/turnId, as on the AI Task path) nobody can confirm, so the
+ * change is refused rather than applied unseen.
  */
 function gateAutomationChange(
   ctx: ToolContext | undefined,
@@ -104,7 +105,15 @@ function gateAutomationChange(
   const conversationId = ctx?.conversationId;
   const turnId = ctx?.turnId;
   if (!conversationId || !turnId) {
-    return { proceed: true }; // No continuity → can't gate; behave as before.
+    return {
+      proceed: false,
+      response: {
+        error:
+          "Automations can only be created, changed or deleted in a conversation, where the user " +
+          "sees a preview and confirms it. Nothing was changed. Tell the user to ask for it in a " +
+          "conversation with the assistant.",
+      },
+    };
   }
 
   if (isConfirmed(conversationId, toolName, input, turnId)) {
@@ -129,12 +138,8 @@ function gateAutomationChange(
  * payload that will be refused has to be refused now: caught only when it is
  * applied, it would fail after the user had agreed to it.
  *
- * Returned rather than thrown. A throw from a gated tool hands the user's
- * confirmation back (see the catch in handleToolCall), so the corrected call
- * would apply without the user ever seeing a preview of it.
- *
- * `current` reads the stored config of the automation being updated, which
- * `requireExposedAutomation` needs to tell what is new.
+ * Returned rather than thrown, so the refusal reaches the model as a plain
+ * error and nothing about the confirmation changes.
  */
 /**
  * Some models send these fields as a JSON string. Home Assistant can't use a
@@ -163,19 +168,18 @@ function parseAutomationFields(
   return { input: parsed };
 }
 
-async function automationOutOfReach(
-  ha: HomeAssistantClient,
-  input: Record<string, unknown>,
-  current?: () => Promise<Record<string, unknown>>
-): Promise<string | undefined> {
-  const { trigger, condition, action } = input;
-  if (trigger === undefined && condition === undefined && action === undefined) return undefined;
+async function automationOutOfReach(check: () => Promise<void>): Promise<string | undefined> {
   try {
-    await ha.requireExposedAutomation({ trigger, condition, action }, await current?.());
+    await check();
     return undefined;
   } catch (error) {
     return error instanceof Error ? error.message : String(error);
   }
+}
+
+/** A text argument, trimmed, or `undefined` when the model sent anything else. */
+function text(value: unknown): string | undefined {
+  return typeof value === "string" ? value.trim() : undefined;
 }
 
 /**
@@ -200,6 +204,9 @@ export async function handleToolCall(
 ): Promise<unknown> {
   const start = Date.now();
   console.log(`[tool] ${toolName} called with: ${JSON.stringify(input)}`);
+  // Set once a confirmed automation change is being written to Home Assistant;
+  // only a failure after that point hands the confirmation back.
+  let committing = false;
 
   try {
     let result: unknown;
@@ -218,7 +225,7 @@ export async function handleToolCall(
         break;
 
       case "call_service":
-        result = await ha.callService(
+        result = await ha.callServiceAsAssistant(
           input.domain as string,
           input.service as string,
           input.entity_id as string | undefined,
@@ -257,9 +264,13 @@ export async function handleToolCall(
           break;
         }
         input = parsedFields.input;
-        const alias = (input.alias as string | undefined)?.trim();
+        const alias = text(input.alias);
         if (!alias) {
-          result = { error: "create_automation requires an 'alias'." };
+          result = { error: "create_automation requires an 'alias' (text)." };
+          break;
+        }
+        if (input.mode !== undefined && typeof input.mode !== "string") {
+          result = { error: "'mode' must be text, such as \"single\" or \"restart\"." };
           break;
         }
         if (input.trigger === undefined || input.trigger === null) {
@@ -271,7 +282,7 @@ export async function handleToolCall(
           break;
         }
 
-        const createRefusal = await automationOutOfReach(ha, input);
+        const createRefusal = await automationOutOfReach(() => ha.checkAutomationCreate(input));
         if (createRefusal) {
           result = { error: createRefusal };
           break;
@@ -285,6 +296,7 @@ export async function handleToolCall(
 
         // Enforce the "Nives: " alias prefix idempotently (don't double-prefix).
         const prefixedAlias = /^nives:\s*/i.test(alias) ? alias : `Nives: ${alias}`;
+        committing = true;
         const created = await ha.createAutomation({
           alias: prefixedAlias,
           trigger: input.trigger,
@@ -314,7 +326,7 @@ export async function handleToolCall(
       }
 
       case "get_automation": {
-        const entityId = (input.entity_id as string | undefined)?.trim();
+        const entityId = text(input.entity_id);
         if (!entityId) {
           result = { error: "get_automation requires an 'entity_id'." };
           break;
@@ -348,14 +360,9 @@ export async function handleToolCall(
       }
 
       case "delete_automation": {
-        const entityId = (input.entity_id as string | undefined)?.trim();
+        const entityId = text(input.entity_id);
         if (!entityId) {
-          result = { error: "delete_automation requires an 'entity_id'." };
-          break;
-        }
-        const gate = gateAutomationChange(ctx, "delete_automation", input);
-        if (!gate.proceed) {
-          result = gate.response;
+          result = { error: "delete_automation requires an 'entity_id' (text)." };
           break;
         }
         const automations = await ha.listAutomations();
@@ -371,7 +378,25 @@ export async function handleToolCall(
           };
           break;
         }
+        // Only what the assistant can see in full: an automation the user built
+        // around devices they kept from it may be a safety one, and deleting it
+        // reaches those devices just as changing it would.
+        const readable = await ha.readAutomation(configId);
+        if (readable.hidden.length > 0 || readable.blueprint !== undefined) {
+          result = {
+            error:
+              `"${entityId}" names devices or actions you may not use, so you can't delete it. ` +
+              `Nothing was changed. The user can delete it in Home Assistant.`,
+          };
+          break;
+        }
+        const gate = gateAutomationChange(ctx, "delete_automation", input);
+        if (!gate.proceed) {
+          result = gate.response;
+          break;
+        }
         const name = (target.attributes.friendly_name as string) ?? entityId;
+        committing = true;
         await ha.deleteAutomation(configId);
         result = {
           success: true,
@@ -389,9 +414,17 @@ export async function handleToolCall(
           break;
         }
         input = parsedFields.input;
-        const entityId = (input.entity_id as string | undefined)?.trim();
+        const entityId = text(input.entity_id);
         if (!entityId) {
-          result = { error: "update_automation requires an 'entity_id'." };
+          result = { error: "update_automation requires an 'entity_id' (text)." };
+          break;
+        }
+        if (input.alias !== undefined && !text(input.alias)) {
+          result = { error: "'alias' must be text." };
+          break;
+        }
+        if (input.mode !== undefined && typeof input.mode !== "string") {
+          result = { error: "'mode' must be text, such as \"single\" or \"restart\"." };
           break;
         }
         // Found before the preview, so the exposure check below can compare
@@ -409,8 +442,16 @@ export async function handleToolCall(
           };
           break;
         }
-        const updateRefusal = await automationOutOfReach(ha, input, () =>
-          ha.getAutomationConfig(configId)
+        // Overlay only the fields the caller actually provided.
+        const changes: Partial<AutomationConfig> = {};
+        const newAlias = text(input.alias);
+        if (newAlias) changes.alias = /^nives:\s*/i.test(newAlias) ? newAlias : `Nives: ${newAlias}`;
+        if (input.trigger !== undefined) changes.trigger = input.trigger;
+        if (input.condition !== undefined) changes.condition = input.condition;
+        if (input.action !== undefined) changes.action = input.action;
+        if (input.mode !== undefined) changes.mode = input.mode as string;
+        const updateRefusal = await automationOutOfReach(async () =>
+          ha.checkAutomationUpdate(changes, await ha.getAutomationConfig(configId))
         );
         if (updateRefusal) {
           result = { error: updateRefusal };
@@ -421,16 +462,7 @@ export async function handleToolCall(
           result = gate.response;
           break;
         }
-        // Overlay only the fields the caller actually provided.
-        const changes: Partial<AutomationConfig> = {};
-        if (input.alias !== undefined) {
-          const a = (input.alias as string).trim();
-          changes.alias = /^nives:\s*/i.test(a) ? a : `Nives: ${a}`;
-        }
-        if (input.trigger !== undefined) changes.trigger = input.trigger;
-        if (input.condition !== undefined) changes.condition = input.condition;
-        if (input.action !== undefined) changes.action = input.action;
-        if (input.mode !== undefined) changes.mode = input.mode as string;
+        committing = true;
         const updated = await ha.updateAutomation(configId, changes);
         result = {
           success: true,
@@ -568,11 +600,11 @@ export async function handleToolCall(
     console.log(`[tool] ${toolName} failed in ${elapsed}ms: ${message}`);
 
     // A gated change only reaches Home Assistant once the user has confirmed
-    // it, and that confirmation was consumed on the way in. If applying it then
+    // it, and that confirmation was consumed on the way in. If writing it then
     // failed, hand the confirmation back so the corrected retry applies without
-    // another preview — the user is not asked the same question twice for one
-    // yes.
-    if (GATED_AUTOMATION_TOOLS.has(toolName) && ctx?.conversationId) {
+    // another preview: the user is not asked the same question twice for one
+    // yes. Only a failure while writing counts.
+    if (committing && GATED_AUTOMATION_TOOLS.has(toolName) && ctx?.conversationId) {
       rearmConfirmation(ctx.conversationId, toolName, input);
       return {
         error: message,

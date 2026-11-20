@@ -1,5 +1,24 @@
 import type { Config } from "../config.js";
-import { AssistExposure, notExposedMessage } from "./exposure.js";
+import {
+  AssistExposure,
+  exposureUnavailableMessage,
+  notExposedMessage,
+  nothingExposedMessage,
+} from "./exposure.js";
+import {
+  CODE_DOMAINS,
+  SCRIPT_LIFECYCLE,
+  assertServiceName,
+  isVoiceEngine,
+  mediaRefusal,
+  normalizeEntityId,
+  notifyRefusal,
+  serviceRefusal,
+} from "./service-policy.js";
+
+/** Calls with a security code allowed per entity within `CODE_WINDOW_MS`. */
+const CODE_ATTEMPTS = 3;
+const CODE_WINDOW_MS = 10 * 60 * 1000;
 import {
   ENTITY_LIST_KEYS,
   INDIRECT_TARGETS,
@@ -7,7 +26,6 @@ import {
   emptyReach,
   entityIdsIn,
   listedEntities,
-  reachKeys,
 } from "./reach.js";
 
 export interface EntityState {
@@ -81,9 +99,6 @@ export interface ServiceCallWithResponse {
   service_response: unknown;
 }
 
-/** Lifecycle services of the script domain; any other `script.X` runs script X. */
-const SCRIPT_LIFECYCLE = new Set(["turn_on", "turn_off", "toggle", "reload"]);
-
 let lastAutomationId = 0;
 
 /**
@@ -125,12 +140,14 @@ export class HomeAssistantClient {
   // service call. Missing or failed → looked up again next time.
   private serviceResponseTTL: number = 5 * 60 * 1000;
   private serviceResponseCache: CacheEntry<Map<string, ServiceResponseSupport>> | null = null;
+  /** When calls carrying a security code were made, by entity, for `CODE_ATTEMPTS`. */
+  private codeAttempts = new Map<string, number[]>();
 
   /**
    * @param exposure The entities the user exposed to Assist. When given, it
    *   bounds what the tools can read and drive, the same bound Home Assistant's
-   *   own agent puts on its tools. Omitted, or reporting "no opinion", it leaves
-   *   the client unfiltered.
+   *   own agent puts on its tools; an empty or unread list allows nothing.
+   *   Omitted (`TOOLS_FROM_EXPOSED=false`), the client reaches every entity.
    */
   constructor(
     config: Config,
@@ -151,8 +168,36 @@ export class HomeAssistantClient {
   private async requireExposed(...entityIds: string[]): Promise<void> {
     if (!this.exposure) return;
     for (const id of entityIds) {
-      if (!(await this.exposure.allows(id))) throw new Error(notExposedMessage(id));
+      if (await this.exposure.allows(id)) continue;
+      const unread = (await this.exposure.list()) === null;
+      throw new Error(unread ? exposureUnavailableMessage() : notExposedMessage(id));
     }
+  }
+
+  /**
+   * The entities a service call names, from `entity_id`, a nested `target`, the
+   * entity maps and lists of `ENTITY_LIST_KEYS`, and the script that
+   * `script.<name>` runs; plus the first area, device, floor or label target.
+   */
+  private serviceTargets(
+    domain: string,
+    service: string,
+    payload: Record<string, unknown>
+  ): { ids: string[]; indirect?: string } {
+    const nested =
+      payload.target && typeof payload.target === "object"
+        ? (payload.target as Record<string, unknown>)
+        : {};
+    const indirect = INDIRECT_TARGETS.find(
+      (k) => payload[k] !== undefined || nested[k] !== undefined
+    );
+    const ids = [
+      ...entityIdsIn(payload.entity_id),
+      ...entityIdsIn(nested.entity_id),
+      ...ENTITY_LIST_KEYS.flatMap((k) => listedEntities(payload[k])),
+    ];
+    if (domain === "script" && !SCRIPT_LIFECYCLE.has(service)) ids.push(`script.${service}`);
+    return { ids, indirect };
   }
 
   /**
@@ -161,90 +206,62 @@ export class HomeAssistantClient {
    * Named entities are checked one by one, including those in a nested
    * `target` and the entity maps and lists that scenes and groups take
    * (`ENTITY_LIST_KEYS`). Area, device, floor and label targets would have to
-   * be resolved to know what they hit, so while the list has an opinion they
-   * are refused and the model is told to name entities. A call with no target
-   * touches no entity, except `script.<name>`, which runs that script.
+   * be resolved to know what they hit, so they are refused and the model is
+   * told to name entities. A call with no target touches no entity, except
+   * `script.<name>`, which runs that script; whether the assistant may make
+   * such a call at all is `serviceRefusal`'s question (`callServiceAsAssistant`).
    */
   private async requireExposedTargets(
     domain: string,
     service: string,
     payload: Record<string, unknown>
   ): Promise<void> {
-    if (!this.exposure || (await this.exposure.list()) === null) return;
-    const nested =
-      payload.target && typeof payload.target === "object"
-        ? (payload.target as Record<string, unknown>)
-        : {};
-    const indirect = INDIRECT_TARGETS.find(
-      (k) => payload[k] !== undefined || nested[k] !== undefined
-    );
+    if (!this.exposure) return;
+    const { ids, indirect } = this.serviceTargets(domain, service, payload);
     if (indirect) {
       throw new Error(
         `Targeting by ${indirect} is not available to you: only entities the user exposed to the ` +
           `assistant may be controlled. Call the service with the exposed entity_ids instead.`
       );
     }
-    const ids = [
-      ...entityIdsIn(payload.entity_id),
-      ...entityIdsIn(nested.entity_id),
-      ...ENTITY_LIST_KEYS.flatMap((k) => listedEntities(payload[k])),
-    ];
     if (ids.includes("all")) {
       throw new Error(
         `entity_id "all" is not available to you: it reaches entities the user has not exposed. ` +
           `Call the service with the exposed entity_ids instead.`
       );
     }
-    if (domain === "script" && !SCRIPT_LIFECYCLE.has(service)) ids.push(`script.${service}`);
     await this.requireExposed(...ids);
   }
 
   /**
-   * Refuses an automation that would reach past the exposure list.
+   * Refuses an automation that would reach past the exposure list or do what
+   * the assistant may not, checked exactly as it will be written.
    *
-   * The same bound as a service call, over everything the triggers, conditions
-   * and actions name (see `collectReach`): named entities must be exposed;
-   * area, device, floor and label selectors and templated entity ids cannot be
-   * vetted, so they are refused while the list has an opinion; and an
-   * entity-shaped word anywhere else (a template, `at:`, `action: script.x`)
-   * is checked when an entity by that id exists.
-   *
-   * @param current The stored config of the automation being updated. What a
-   *   section already named is left alone when that section is rewritten: the
-   *   user wrote it, not the assistant, and refusing it would stop the
-   *   assistant from renaming or retiming automations the user made by hand.
-   *   Only reach that is new to the section is checked, so an entity the
-   *   automation merely watched cannot be moved into an action that drives it.
-   *   A section the assistant is not allowed to read cannot be replaced without
-   *   keeping what it names: the assistant would be writing over what it never saw.
+   * What it calls and how (`checkActionStep`) and what its templates read
+   * (`readsStateDynamically`) are refused whether or not the tools are bounded
+   * by the list: TOOLS_FROM_EXPOSED=false opens up the entities, not the
+   * system. Then the same bound as a service call, over everything the
+   * triggers, conditions and actions name (see `collectReach`): named entities
+   * must be exposed; area, device, floor and label selectors and templated
+   * entity ids cannot be vetted, so they are refused; and an entity-shaped word
+   * anywhere else (a template, `at:`, `action: script.x`) is checked when an
+   * entity by that id exists.
    */
   async requireExposedAutomation(
-    sections: Partial<Pick<AutomationConfig, AutomationSection>>,
-    current?: Record<string, unknown>
+    sections: Partial<Pick<AutomationConfig, AutomationSection>>
   ): Promise<void> {
-    if (!this.exposure || (await this.exposure.list()) === null) return;
-    const pairs: [AutomationSection, unknown, unknown][] = [
-      ["trigger", sections.trigger, current?.trigger ?? current?.triggers],
-      ["condition", sections.condition, current?.condition ?? current?.conditions],
-      ["action", sections.action, current?.action ?? current?.actions],
-    ];
     const reach = emptyReach();
-    for (const [section, next, before] of pairs) {
-      if (next === undefined) continue;
-      const known = reachKeys(collectReach(before));
-      const found = collectReach(next);
-      const kept = reachKeys(found);
-      if ([...known].some((item) => !kept.has(item)) && (await this.isHiddenSection(before))) {
-        throw new Error(
-          `The ${section} of this automation names devices the user has not exposed to the ` +
-            `assistant, so you can't see it, and replacing it would lose them. Nothing was ` +
-            `changed. The user can edit it in Home Assistant, or expose those devices and ask again.`
-        );
-      }
-      for (const kind of ["named", "indirect", "templated", "mentioned"] as const) {
-        for (const item of found[kind]) if (!known.has(item)) reach[kind].add(item);
-      }
+    for (const section of [sections.trigger, sections.condition, sections.action]) {
+      if (section !== undefined) collectReach(section, reach);
     }
+    const [refused] = reach.refused;
+    if (refused) throw new Error(refused);
+    if (!this.exposure) return;
+    // An automation runs for the household like any call: with nothing
+    // exposed, or the list unread, the assistant may write none.
+    const exposed = await this.exposure.list();
+    if (exposed === null) throw new Error(exposureUnavailableMessage());
+    if (exposed.size === 0) throw new Error(nothingExposedMessage());
 
     const [indirect] = reach.indirect;
     if (indirect) {
@@ -269,10 +286,77 @@ export class HomeAssistantClient {
       );
     }
     await this.requireExposed(...reach.named);
-    if (reach.mentioned.size > 0) {
-      const existing = new Set((await this.getAllStatesCached()).map((s) => s.entity_id));
-      await this.requireExposed(...[...reach.mentioned].filter((id) => existing.has(id)));
+    await this.requireExposedMentions(reach.mentioned);
+  }
+
+  /** Mentioned ids are checked only when an entity by that id exists. */
+  private async requireExposedMentions(mentioned: Set<string>): Promise<void> {
+    if (!this.exposure || mentioned.size === 0) return;
+    const existing = new Set((await this.getAllStatesCached()).map((s) => s.entity_id));
+    await this.requireExposed(...[...mentioned].filter((id) => existing.has(id)));
+  }
+
+  /** The sections a change writes, in the form they are written. */
+  private writtenSections(
+    changes: Partial<Pick<AutomationConfig, AutomationSection>>
+  ): Partial<Pick<AutomationConfig, AutomationSection>> {
+    return {
+      ...(changes.trigger !== undefined && { trigger: this.toArray(changes.trigger) }),
+      ...(changes.condition !== undefined && { condition: this.toArray(changes.condition) }),
+      ...(changes.action !== undefined && {
+        action: this.normalizeActions(this.toArray(changes.action)),
+      }),
+    };
+  }
+
+  /** Throws when the assistant may not create this automation. */
+  async checkAutomationCreate(
+    config: Partial<Pick<AutomationConfig, AutomationSection>>
+  ): Promise<void> {
+    const written = this.writtenSections(config);
+    await this.requireExposedAutomation(written);
+    // Here as well as at the write, so a payload is never refused after the
+    // user said yes to its preview.
+    if (written.action !== undefined) await this.validateActionServices(written.action);
+  }
+
+  /**
+   * Throws when the assistant may not make this change to a stored automation.
+   *
+   * An automation with any section the assistant may not read (one that names
+   * something unexposed, or does what it may not) is the user's to change:
+   * the assistant leaves it as it is, name included. Anything else is checked
+   * exactly as it will be written.
+   */
+  async checkAutomationUpdate(
+    changes: Partial<AutomationConfig>,
+    current: Record<string, unknown>
+  ): Promise<void> {
+    // Its triggers and actions live in the blueprint, and writing it back without
+    // `use_blueprint` would leave an automation that does nothing.
+    if (current.use_blueprint !== undefined) {
+      throw new Error(
+        `"${current.alias}" is built from a blueprint, so it can't be changed here. ` +
+          `Nothing was changed. The user can edit it in Home Assistant.`
+      );
     }
+    const stored = [
+      current.trigger ?? current.triggers,
+      current.condition ?? current.conditions,
+      current.action ?? current.actions,
+    ];
+    for (const section of stored) {
+      if (await this.isHiddenSection(section)) {
+        throw new Error(
+          `This automation names devices or actions you may not use, so you can't change it. ` +
+            `Nothing was changed. The user can edit it in Home Assistant, or expose those ` +
+            `devices and ask again.`
+        );
+      }
+    }
+    const written = this.writtenSections(changes);
+    await this.requireExposedAutomation(written);
+    if (written.action !== undefined) await this.validateActionServices(written.action);
   }
 
   /**
@@ -378,7 +462,8 @@ export class HomeAssistantClient {
   /**
    * Get state of a single entity (cached)
    */
-  async getState(entityId: string): Promise<EntityState> {
+  async getState(rawEntityId: string): Promise<EntityState> {
+    const entityId = normalizeEntityId(rawEntityId);
     await this.requireExposed(entityId);
 
     // Check individual cache first
@@ -394,7 +479,7 @@ export class HomeAssistantClient {
     }
 
     // Fetch individual entity
-    const state = await this.fetch<EntityState>(`/api/states/${entityId}`);
+    const state = await this.fetch<EntityState>(`/api/states/${encodeURIComponent(entityId)}`);
     this.entityCache.set(entityId, { data: state, timestamp: Date.now() });
     return state;
   }
@@ -412,7 +497,7 @@ export class HomeAssistantClient {
     return states;
   }
 
-  /** Every state the assistant may see: all of them when the list has no opinion. */
+  /** Every state the assistant may see: all of them when the tools are not bounded. */
   private async visibleStates(): Promise<EntityState[]> {
     const states = await this.getAllStatesCached();
     return this.exposure ? this.exposure.filter(states) : states;
@@ -440,6 +525,80 @@ export class HomeAssistantClient {
   }
 
   /**
+   * A service call the assistant asked for. Everything `callService` checks,
+   * plus what the assistant may call at all (`serviceRefusal`): no system
+   * services, and no call that names nothing it acts on, except the few meant
+   * to be called that way. The add-on's own calls (reloading automations,
+   * posting its notifications) go through `callService` and are not limited.
+   */
+  async callServiceAsAssistant(
+    domain: string,
+    service: string,
+    entityId?: string,
+    data?: Record<string, unknown>
+  ): Promise<EntityState[] | ServiceCallWithResponse> {
+    assertServiceName(domain, service);
+    const payload: Record<string, unknown> = { ...data };
+    if (entityId) payload.entity_id = entityId;
+    const { ids, indirect } = this.serviceTargets(domain, service, payload);
+    const targeted = ids.some((id) => !isVoiceEngine(id.toLowerCase())) || indirect !== undefined;
+    const refusal =
+      serviceRefusal(domain, service, targeted) ??
+      (domain === "notify" ? notifyRefusal(service, payload) : null) ??
+      mediaRefusal(payload, service === "browse_media" || service === "search_media");
+    if (refusal) throw new Error(refusal);
+    // Before anything is awaited: the model's calls run in parallel, and each
+    // must see the attempts the others have already taken.
+    this.takeCodeAttempt(domain, payload, ids, indirect);
+    if (this.exposure) {
+      // A call that names nothing still acts for the household: with nothing
+      // exposed, or the list unread, the assistant may do nothing at all.
+      if (!targeted) {
+        const exposed = await this.exposure.list();
+        if (exposed === null) throw new Error(exposureUnavailableMessage());
+        if (exposed.size === 0) throw new Error(nothingExposedMessage());
+      }
+      // An entity can also be named inside the fields (a script's field, an id
+      // in a url or a message): checked like the mentions in an automation.
+      await this.requireExposedMentions(collectReach(payload, undefined, true).mentioned);
+    }
+    return this.callService(domain, service, entityId, data);
+  }
+
+  /**
+   * A code is often all that guards an alarm or a lock, and many answer a wrong
+   * one without an error, so every call that carries a code counts: a few per
+   * entity within `CODE_WINDOW_MS`, then no more. Throws when none is left.
+   */
+  private takeCodeAttempt(
+    domain: string,
+    payload: Record<string, unknown>,
+    ids: string[],
+    indirect: string | undefined
+  ): void {
+    if (!CODE_DOMAINS.has(domain) || payload.code === undefined) return;
+    const keys = ids.map((id) => id.trim().toLowerCase());
+    if (keys.length === 0 || indirect !== undefined) {
+      throw new Error(
+        `A security code can only be sent to a named alarm or lock, not to an area or device. ` +
+          `Call it again with the entity_id.`
+      );
+    }
+    const now = Date.now();
+    for (const key of keys) {
+      const recent = (this.codeAttempts.get(key) ?? []).filter((t) => now - t < CODE_WINDOW_MS);
+      this.codeAttempts.set(key, recent);
+      if (recent.length >= CODE_ATTEMPTS) {
+        throw new Error(
+          `${key} has been sent a code ${CODE_ATTEMPTS} times in the last few minutes, so you ` +
+            `can't send another now. Tell the user to use Home Assistant or the device itself.`
+        );
+      }
+    }
+    for (const key of keys) this.codeAttempts.get(key)!.push(now);
+  }
+
+  /**
    * Call a Home Assistant service (invalidates cache).
    *
    * Services that return data (`weather.get_forecasts`, `calendar.get_events`,
@@ -460,6 +619,7 @@ export class HomeAssistantClient {
     entityId?: string,
     data?: Record<string, unknown>
   ): Promise<EntityState[] | ServiceCallWithResponse> {
+    assertServiceName(domain, service);
     const payload: Record<string, unknown> = { ...data };
     const hint = payload.return_response === true;
     delete payload.return_response;
@@ -476,7 +636,9 @@ export class HomeAssistantClient {
     const wantResponse =
       support === "only" || support === "optional" || (support === undefined && hint);
 
-    const endpoint = `/api/services/${domain}/${service}${wantResponse ? "?return_response" : ""}`;
+    const endpoint =
+      `/api/services/${encodeURIComponent(domain)}/${encodeURIComponent(service)}` +
+      (wantResponse ? "?return_response" : "");
     const result = await this.fetch<EntityState[] | ServiceCallWithResponse>(endpoint, {
       method: "POST",
       body: JSON.stringify(payload),
@@ -538,10 +700,12 @@ export class HomeAssistantClient {
    * Get historical states for an entity (not cached - historical data)
    */
   async getHistory(
-    entityId: string,
+    rawEntityId: string,
     startTime?: string,
     endTime?: string
   ): Promise<HistoryEntry[]> {
+    // One entity: `filter_entity_id` also takes a comma-separated list.
+    const entityId = normalizeEntityId(rawEntityId);
     await this.requireExposed(entityId);
 
     const start = startTime || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -651,7 +815,7 @@ export class HomeAssistantClient {
     await this.validateActionServices(body.action);
 
     try {
-      await this.fetch(`/api/config/automation/config/${id}`, {
+      await this.fetch(`/api/config/automation/config/${encodeURIComponent(id)}`, {
         method: "POST",
         body: JSON.stringify(body),
       });
@@ -686,7 +850,7 @@ export class HomeAssistantClient {
 
   /** Delete an automation by its config id, then reload. */
   async deleteAutomation(id: string): Promise<void> {
-    await this.fetch(`/api/config/automation/config/${id}`, { method: "DELETE" });
+    await this.fetch(`/api/config/automation/config/${encodeURIComponent(id)}`, { method: "DELETE" });
     await this.callService("automation", "reload");
   }
 
@@ -704,7 +868,7 @@ export class HomeAssistantClient {
 
   /** Read an automation's stored config by its config id (the value in attributes.id). */
   async getAutomationConfig(id: string): Promise<Record<string, unknown>> {
-    return this.fetch<Record<string, unknown>>(`/api/config/automation/config/${id}`);
+    return this.fetch<Record<string, unknown>>(`/api/config/automation/config/${encodeURIComponent(id)}`);
   }
 
   /** Whether a stored section reaches past the exposure list. */
@@ -756,14 +920,7 @@ export class HomeAssistantClient {
     changes: Partial<AutomationConfig>
   ): Promise<CreatedAutomation> {
     const current = await this.getAutomationConfig(id);
-    // Its triggers and actions live in the blueprint, and writing it back without
-    // `use_blueprint` would leave an automation that does nothing.
-    if (current.use_blueprint !== undefined) {
-      throw new Error(
-        `"${current.alias}" is built from a blueprint, so it can't be changed here. ` +
-          `Nothing was changed. The user can edit it in Home Assistant.`
-      );
-    }
+    await this.checkAutomationUpdate(changes, current);
     // HA's config API returns plural keys (triggers/conditions/actions); older
     // forms / our POST body use singular. Read BOTH so an un-changed field is
     // preserved from current instead of being wiped to [] (this silently
@@ -801,10 +958,9 @@ export class HomeAssistantClient {
       ),
     };
 
-    await this.requireExposedAutomation(changes, current);
     await this.validateActionServices(merged.action);
 
-    await this.fetch(`/api/config/automation/config/${id}`, {
+    await this.fetch(`/api/config/automation/config/${encodeURIComponent(id)}`, {
       method: "POST",
       body: JSON.stringify(merged),
     });
