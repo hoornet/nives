@@ -1348,7 +1348,7 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
         "{{ is_state('light.kitchen_table' | replace('light', 'x'), 'on') }}",
         "{{ state_attr('light.kitchen_table'[:0] ~ 'x', 'y') }}",
       ]) {
-        await expect(create(client, say(template))).rejects.toThrow(/reads devices without naming them/);
+        await expect(create(client, say(template))).rejects.toThrow(/uses something you may not use/);
       }
       expect(wroteAutomation()).toBe(false);
       for (const template of [

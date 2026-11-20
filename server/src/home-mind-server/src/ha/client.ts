@@ -238,7 +238,7 @@ export class HomeAssistantClient {
    * the assistant may not, checked exactly as it will be written.
    *
    * What it calls and how (`checkActionStep`) and what its templates read
-   * (`readsStateDynamically`) are refused whether or not the tools are bounded
+   * (`isSafeTemplate`) are refused whether or not the tools are bounded
    * by the list: TOOLS_FROM_EXPOSED=false opens up the entities, not the
    * system. Then the same bound as a service call, over everything the
    * triggers, conditions and actions name (see `collectReach`): named entities

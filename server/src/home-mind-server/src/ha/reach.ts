@@ -12,6 +12,7 @@
  * its templates read, since they run with that authority too.
  */
 
+import { isSafeTemplate } from "./template-check.js";
 import {
   CODE_DOMAINS,
   SCRIPT_LIFECYCLE,
@@ -246,43 +247,6 @@ function checkActionStep(step: Record<string, unknown>, reach: Reach): void {
  * collected as a mention and held to the exposure list like any other.
  */
 /**
- * One entity by its literal id, or the entity that fired a (checked) trigger,
- * followed by the end of the argument, so a filter cannot turn it into another.
- */
-const LITERAL_ID = String.raw`(?:'[a-z0-9_]+\.[a-z0-9_]+'|"[a-z0-9_]+\.[a-z0-9_]+"|trigger\.entity_id)(?=\s*[,)])`;
-/** The same, minus groups: `closest` and `distance` look inside a group at its members. */
-const LITERAL_NON_GROUP = String.raw`(?:'(?!group\.)[a-z0-9_]+\.[a-z0-9_]+'|"(?!group\.)[a-z0-9_]+\.[a-z0-9_]+"|trigger\.entity_id)(?=\s*[,)])`;
-const LITERAL_STATE_READS = [
-  new RegExp(String.raw`\b(states|state_translated)\s*\(\s*${LITERAL_ID}\s*(,[^()]*)?\)`, "gi"),
-  new RegExp(String.raw`\b(state_attr|is_state|is_state_attr|has_value)\s*\(\s*${LITERAL_ID}`, "gi"),
-  new RegExp(
-    String.raw`\b(distance|closest)\s*\(\s*${LITERAL_NON_GROUP}(\s*,\s*${LITERAL_NON_GROUP})*\s*\)`,
-    "gi"
-  ),
-  /\bstates\.[a-z0-9_]+\.[a-z0-9_]+/gi,
-];
-
-/**
- * Template forms that reach state without naming the entity: `states` used as a
- * whole or by domain, `expand`, the `*_entities()` lookups, location helpers,
- * and macros imported from the user's own templates. What a trigger carries
- * needs no rule here: only `ALLOWED_TRIGGERS` can start an automation the
- * assistant writes.
- */
-const DYNAMIC_STATE_READS =
-  /\b(states|state_attr|is_state|is_state_attr|has_value|expand|state_translated|closest|distance)\b|_entities\s*\(|\{%-?\s*(from|import|include)\b/i;
-
-/**
- * Whether a template reads state without naming the entity it reads, which the
- * exposure check cannot vet. Reading an entity by its literal id is fine.
- */
-export function readsStateDynamically(template: string): boolean {
-  let rest = template;
-  for (const literal of LITERAL_STATE_READS) rest = rest.replace(literal, "");
-  return DYNAMIC_STATE_READS.test(rest);
-}
-
-/**
  * Adds every adjacent pair in each dotted word: `states.sensor.cellar.state`
  * yields `sensor.cellar` among its pairs, and `states('lock.front')` yields
  * `lock.front`. The text is lower-cased first, because Home Assistant
@@ -334,11 +298,13 @@ export function collectReach(node: unknown, reach: Reach = emptyReach(), asData 
   }
   if (typeof node === "string") {
     addMentions(node, reach.mentioned);
-    if (isTemplate(node) && readsStateDynamically(node)) {
+    if (isTemplate(node) && !isSafeTemplate(node)) {
       reach.refused.add(
-        `A template in this automation reads devices without naming them ` +
-          `(${node.trim().slice(0, 80)}), so what it reads can't be checked against what the user ` +
-          `exposed. Name each device by its id, as in states('sensor.kitchen_temperature').`
+        `A template in this automation (${node.trim().slice(0, 80)}) uses something you may not ` +
+          `use in an automation. Templates may read a device only by its id, as in ` +
+          `states('sensor.kitchen_temperature') or state_attr('sensor.x', 'unit_of_measurement'), ` +
+          `plus what the trigger carries, the time, numbers and text, with simple filters such ` +
+          `as float, round and default, comparisons and "a if b else c". No {% %} statements.`
       );
     }
     return reach;
