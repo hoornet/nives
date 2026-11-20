@@ -166,7 +166,7 @@ describe("HomeAssistantClient.createAutomation", () => {
       ha.createAutomation({
         alias: "X",
         trigger: { platform: "time", at: "20:00:00" },
-        action: { service: "light.turn_on" },
+        action: { service: "light.turn_on", target: { entity_id: "light.kitchen" } },
       })
     ).rejects.toThrow(/config editor/i);
   });
@@ -198,12 +198,12 @@ describe("HomeAssistantClient.createAutomation", () => {
         ha.createAutomation({
           alias: "Nives: Bedroom cooling on",
           trigger: { platform: "time", at: "20:00:00" },
-          action: { service: "light.turn_on" },
+          action: { service: "light.turn_on", target: { entity_id: "light.bedroom" } },
         }),
         ha.createAutomation({
           alias: "Nives: Bedroom cooling off",
           trigger: { platform: "time", at: "22:00:00" },
-          action: { service: "light.turn_off" },
+          action: { service: "light.turn_off", target: { entity_id: "light.bedroom" } },
         }),
       ]);
 
@@ -523,6 +523,7 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
     { entity_id: "tts.nives_text_to_speech", state: "unknown", attributes: { friendly_name: "Nives Text-to-speech" } },
     { entity_id: "media_player.living_room_speaker", state: "idle", attributes: { friendly_name: "Living room speaker" } },
     { entity_id: "media_player.bedroom_speaker", state: "idle", attributes: { friendly_name: "Bedroom speaker" } },
+    { entity_id: "camera.bedroom", state: "idle", attributes: { friendly_name: "Bedroom camera" } },
   ];
 
   // Enough of the services catalog for automation writes to pass their own
@@ -533,6 +534,9 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
     { domain: "scene", services: { apply: {}, create: {} } },
     { domain: "group", services: { set: {} } },
     { domain: "automation", services: { reload: {} } },
+    { domain: "homeassistant", services: { restart: {}, turn_off: {} } },
+    { domain: "hassio", services: { host_reboot: {} } },
+    { domain: "notify", services: { mobile_app_phone: {} } },
   ];
 
   let calls: string[];
@@ -611,7 +615,7 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
       await expect(
         client.getHistory("light.kitchen_table,sensor.kitchen_presence")
-      ).rejects.toThrow(/not available to you/);
+      ).rejects.toThrow(/Invalid entity_id/);
       expect(calls.some((u) => u.includes("/api/history"))).toBe(false);
     });
 
@@ -699,18 +703,26 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       }
     );
 
-    it("passes indirect targets when the list has no opinion", async () => {
+    it("refuses indirect targets while the list cannot be read", async () => {
       const client = new HomeAssistantClient(baseConfig, new AssistExposure(async () => null));
-      await client.callService("light", "turn_off", undefined, { area_id: "kitchen" });
-      await client.callService("light", "turn_on", undefined, { target: { label_id: "evening" } });
-      expect(posted("light/turn_off")).toBe(true);
-      expect(posted("light/turn_on")).toBe(true);
+      await expect(
+        client.callService("light", "turn_off", undefined, { area_id: "kitchen" })
+      ).rejects.toThrow(/Targeting by area_id is not available/);
+      await expect(
+        client.callService("light", "turn_on", undefined, { target: { label_id: "evening" } })
+      ).rejects.toThrow(/Targeting by label_id is not available/);
+      expect(posted("light/")).toBe(false);
     });
 
-    it("passes indirect targets when the user exposed nothing", async () => {
+    it("refuses everything when the user exposed nothing", async () => {
       const client = new HomeAssistantClient(baseConfig, new AssistExposure(async () => new Set()));
-      await client.callService("light", "turn_off", undefined, { area_id: "kitchen" });
-      expect(posted("light/turn_off")).toBe(true);
+      await expect(
+        client.callService("light", "turn_off", undefined, { area_id: "kitchen" })
+      ).rejects.toThrow(/Targeting by area_id is not available/);
+      await expect(client.callService("light", "turn_on", "light.kitchen_table")).rejects.toThrow(
+        /light\.kitchen_table is not available to you/
+      );
+      expect(posted("light/")).toBe(false);
     });
 
     it("needs script.<name> exposed to run it; lifecycle services check their target", async () => {
@@ -872,7 +884,7 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
 
     it.each([
       ["area_id", { service: "light.turn_on", target: { area_id: "kitchen" } }],
-      ["device_id", { device_id: "abc123", domain: "lock", type: "unlock" }],
+      ["device_id", { service: "light.turn_on", target: { device_id: "abc123" } }],
       ["label_id", { service: "light.turn_off", data: { label_id: ["evening"] } }],
     ])("refuses a %s selector, which cannot be vetted", async (key, action) => {
       const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
@@ -974,7 +986,7 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       });
     });
 
-    it("an update may keep what the user's automation already names in that section", async () => {
+    it("an automation that names something unexposed is left to the user", async () => {
       // Written by hand in Home Assistant: watches a sensor the user never exposed.
       storedAutomation = {
         id: "1700000000000",
@@ -983,60 +995,47 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
         actions: [kitchenOn],
       };
       const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
-      await client.updateAutomation("1700000000000", {
-        trigger: [{ platform: "state", entity_id: "sensor.kitchen_presence", to: "on", for: "00:01:00" }],
-      });
-      expect(wroteAutomation()).toBe(true);
+      for (const changes of [
+        { trigger: at7 },
+        { trigger: [] },
+        { action: [] },
+        { condition: [] },
+        { mode: "restart" },
+        { alias: "Kitchen presence (evening)" },
+      ]) {
+        const refusal = client.updateAutomation("1700000000000", changes);
+        await expect(refusal).rejects.toThrow(/so you can't change it/);
+        await expect(refusal).rejects.not.toThrow(/sensor\.kitchen_presence/);
+      }
+      expect(calls.filter((u) => u.includes("/api/config/automation/config/")).length).toBe(6); // the reads
     });
 
-    it("an update cannot replace a section the assistant isn't allowed to read", async () => {
+    it("an update to a fully visible automation is checked as written", async () => {
       storedAutomation = {
         id: "1700000000000",
-        alias: "Kitchen presence",
-        triggers: [{ trigger: "state", entity_id: "sensor.kitchen_presence", to: "on" }],
+        alias: "Kitchen at 7",
+        triggers: [{ trigger: "time", at: "07:00:00" }],
         actions: [kitchenOn],
       };
       const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
-      const refusal = client.updateAutomation("1700000000000", { trigger: at7 });
-      await expect(refusal).rejects.toThrow(/names devices the user has not exposed/);
-      await expect(refusal).rejects.not.toThrow(/sensor\.kitchen_presence/);
-      // an empty section loses it just the same
-      await expect(
-        client.updateAutomation("1700000000000", { trigger: [] })
-      ).rejects.toThrow(/replacing it would lose them/);
-      expect(calls.filter((u) => u.includes("/api/config/automation/config/"))).toHaveLength(2); // the reads
-    });
-
-    it("an update can still replace the sections the assistant can read", async () => {
-      storedAutomation = {
-        id: "1700000000000",
-        alias: "Kitchen presence",
-        triggers: [{ trigger: "state", entity_id: "sensor.kitchen_presence", to: "on" }],
-        actions: [kitchenOn],
-      };
-      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
-      await client.updateAutomation("1700000000000", { action: [] });
-      expect(calls.filter((u) => u.includes("/api/config/automation/config/"))).toHaveLength(2);
-    });
-
-    it("an update cannot move a watched entity into an action that drives it", async () => {
-      storedAutomation = {
-        id: "1700000000000",
-        alias: "Door locked",
-        triggers: [{ trigger: "state", entity_id: "lock.front_door", to: "locked" }],
-        actions: [kitchenOn],
-      };
-      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await client.updateAutomation("1700000000000", { trigger: { trigger: "time", at: "06:30:00" } });
       await expect(
         client.updateAutomation("1700000000000", { action: [kitchenOn, unlock] })
       ).rejects.toThrow(/lock\.front_door is not available/);
-      expect(calls.filter((u) => u.includes("/api/config/automation/config/"))).toHaveLength(1); // the read
+      // the split form the action normalizer folds into homeassistant.restart
+      await expect(
+        client.updateAutomation("1700000000000", {
+          action: [{ service: "restart", domain: "homeassistant" }],
+        })
+      ).rejects.toThrow(/homeassistant\.restart is not available/);
     });
 
-    it("is unbounded when the list has no opinion", async () => {
+    it("writes nothing while the list cannot be read", async () => {
       const client = new HomeAssistantClient(baseConfig, new AssistExposure(async () => null));
-      await client.createAutomation({ alias: "Unlock at 7", trigger: at7, action: unlock });
-      expect(wroteAutomation()).toBe(true);
+      await expect(
+        client.createAutomation({ alias: "Unlock at 7", trigger: at7, action: unlock })
+      ).rejects.toThrow(/has not told the assistant yet/);
+      expect(wroteAutomation()).toBe(false);
     });
 
     describe("reading an automation back", () => {
@@ -1118,12 +1117,11 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
         });
       });
 
-      it("shows it all when the list has no opinion", async () => {
+      it("hides every section that names a device while the list cannot be read", async () => {
         storedAutomation = handWritten;
         const client = new HomeAssistantClient(baseConfig, new AssistExposure(async () => null));
         await expect(client.readAutomation("1700000000000")).resolves.toMatchObject({
-          trigger: handWritten.triggers,
-          hidden: [],
+          hidden: ["trigger", "condition", "action"],
         });
       });
     });
@@ -1142,13 +1140,458 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
       expect(posted("light/turn_off")).toBe(true);
     });
 
-    it("a list that cannot be read means no opinion, not a house with no devices", async () => {
+    it("a list that cannot be read allows nothing, and says why", async () => {
       const client = new HomeAssistantClient(baseConfig, new AssistExposure(async () => null));
-      expect(await client.getEntities()).toHaveLength(house.length);
-      expect((await client.getState("sensor.kitchen_presence")).state).toBe("on");
-      await client.getHistory("sensor.kitchen_presence");
-      await client.callService("light", "turn_on", "light.kitchen_table_1");
-      expect(posted("light/turn_on")).toBe(true);
+      expect((await client.getEntities()).map((s) => s.entity_id)).toEqual(["tts.nives_text_to_speech"]);
+      await expect(client.getState("sensor.kitchen_presence")).rejects.toThrow(
+        /has not told the assistant yet/
+      );
+      await expect(client.getHistory("sensor.kitchen_presence")).rejects.toThrow(
+        /has not told the assistant yet/
+      );
+      await expect(client.callService("light", "turn_on", "light.kitchen_table_1")).rejects.toThrow(
+        /has not told the assistant yet/
+      );
+      expect(posted("light/turn_on")).toBe(false);
+      expect(calls.some((u) => u.includes("/api/history"))).toBe(false);
     });
+  });
+
+  describe("names that reach a URL", () => {
+    // Domains, services and entity ids become part of request paths, so only
+    // plain, well-formed names get that far.
+    const reached = () => calls.filter((u) => !u.endsWith("/api/states") && !u.endsWith("/api/services"));
+
+    it("refuses a domain or service that is not a plain name, before any request", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      for (const [domain, service] of [
+        ["light/x", "turn_on"],
+        ["light", "turn on"],
+        ["light", "turn_on/x"],
+        ["light", "turn_on?x=1"],
+        ["Light", "turn_on"],
+        ["", "turn_on"],
+      ]) {
+        await expect(client.callService(domain, service, "light.kitchen_table")).rejects.toThrow(
+          /Invalid service (domain|name)/
+        );
+        await expect(
+          client.callServiceAsAssistant(domain, service, "light.kitchen_table")
+        ).rejects.toThrow(/Invalid service (domain|name)/);
+      }
+      expect(reached()).toEqual([]);
+    });
+
+    it("refuses an entity id that is not one entity, before any request", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      for (const id of ["light.kitchen_table/x", "Light Kitchen Table", "light.kitchen_table,light.kitchen_table_1", "sensor"]) {
+        await expect(client.getState(id)).rejects.toThrow(/Invalid entity_id/);
+        await expect(client.getHistory(id)).rejects.toThrow(/Invalid entity_id/);
+      }
+      expect(reached()).toEqual([]);
+    });
+
+    it("refuses a malformed entity id even with the exposure list turned off", async () => {
+      const client = new HomeAssistantClient(baseConfig);
+      await expect(client.getState("light.kitchen_table/x")).rejects.toThrow(/Invalid entity_id/);
+      await expect(client.callService("light/x", "turn_on")).rejects.toThrow(/Invalid service domain/);
+      expect(reached()).toEqual([]);
+    });
+
+    it("reads an entity id written in capitals as Home Assistant stores it", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      expect((await client.getState(" Light.Kitchen_Table ")).state).toBe("on");
+    });
+  });
+
+  describe("what the assistant may call", () => {
+    it("never calls a system service, even one handed an exposed entity", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      for (const [domain, service] of [
+        ["homeassistant", "restart"],
+        ["homeassistant", "stop"],
+        ["homeassistant", "reload_all"],
+        ["hassio", "host_reboot"],
+        ["hassio", "addon_stop"],
+        ["shell_command", "open_gate"],
+        ["rest_command", "open_gate"],
+        ["mqtt", "publish"],
+        ["backup", "create"],
+        ["recorder", "purge"],
+        ["conversation", "process"],
+      ]) {
+        await expect(
+          client.callServiceAsAssistant(domain, service, "light.kitchen_table")
+        ).rejects.toThrow(/is not available to you/);
+      }
+      expect(calls.some((u) => u.includes("/api/services/"))).toBe(false);
+    });
+
+    it("never calls a system service with the exposure list turned off either", async () => {
+      const client = new HomeAssistantClient(baseConfig);
+      await expect(client.callServiceAsAssistant("homeassistant", "restart")).rejects.toThrow(
+        /is not available to you/
+      );
+      await expect(client.callServiceAsAssistant("hassio", "host_shutdown")).rejects.toThrow(
+        /is not available to you/
+      );
+      expect(calls.some((u) => u.includes("/api/services/"))).toBe(false);
+    });
+
+    it("refuses a call that names nothing it acts on", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await expect(client.callServiceAsAssistant("light", "turn_off")).rejects.toThrow(
+        /names no entity/
+      );
+      await expect(client.callServiceAsAssistant("persistent_notification", "create", undefined, {
+        message: "Update now at example.com",
+      })).rejects.toThrow(/is not available to you/);
+      await expect(client.callServiceAsAssistant("script", "reload")).rejects.toThrow(
+        /is not available to you/
+      );
+      expect(calls.some((u) => u.includes("/api/services/"))).toBe(false);
+    });
+
+    it("still makes the ordinary calls", async () => {
+      const client = new HomeAssistantClient(
+        baseConfig,
+        exposing("light.kitchen_table", "script.good_night")
+      );
+      await client.callServiceAsAssistant("light", "turn_on", "light.kitchen_table");
+      await client.callServiceAsAssistant("homeassistant", "turn_off", "light.kitchen_table");
+      await client.callServiceAsAssistant("script", "good_night");
+      await client.callServiceAsAssistant("notify", "mobile_app_phone", undefined, { message: "Hi" });
+      await client.callServiceAsAssistant("shopping_list", "add_item", undefined, { name: "milk" });
+      for (const service of [
+        "light/turn_on",
+        "homeassistant/turn_off",
+        "script/good_night",
+        "notify/mobile_app_phone",
+        "shopping_list/add_item",
+      ]) {
+        expect(posted(service)).toBe(true);
+      }
+    });
+
+    it("still holds a targeted call to the exposure list", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await expect(
+        client.callServiceAsAssistant("homeassistant", "turn_off", "lock.front_door")
+      ).rejects.toThrow(/lock\.front_door is not available to you/);
+      await expect(
+        client.callServiceAsAssistant("light", "turn_off", undefined, { area_id: "kitchen" })
+      ).rejects.toThrow(/Targeting by area_id/);
+      expect(calls.some((u) => u.includes("/api/services/"))).toBe(false);
+    });
+
+    it("leaves the add-on's own calls alone", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await client.callService("automation", "reload");
+      await client.callService("persistent_notification", "create", undefined, { message: "x" });
+      expect(posted("automation/reload")).toBe(true);
+      expect(posted("persistent_notification/create")).toBe(true);
+    });
+  });
+
+  describe("what an automation may contain", () => {
+    const at3 = { trigger: "time", at: "03:00:00" };
+    const kitchenOnAction = { action: "light.turn_on", target: { entity_id: "light.kitchen_table" } };
+    const create = (client: HomeAssistantClient, action: unknown, trigger: unknown = at3) =>
+      client.createAutomation({ alias: "x", trigger, action });
+
+    it("names actions and their fields directly, not through the older template keys", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await expect(create(client, [{ service_template: "light.turn_on" }])).rejects.toThrow(
+        /older "service_template" key/
+      );
+      await expect(
+        create(client, [{ action: "light.turn_on", data_template: { brightness: 10 } }])
+      ).rejects.toThrow(/older "data_template" key/);
+      await expect(
+        create(client, [{ action: "light.turn_on", target: "{{ x }}" }])
+      ).rejects.toThrow(/"target" of an action must be written out/);
+      expect(wroteAutomation()).toBe(false);
+    });
+
+    it("starts from the house's own triggers only", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table", "person.resident"));
+      for (const trigger of [
+        { trigger: "webhook", webhook_id: "abc" },
+        { platform: "event", event_type: "my_event" },
+        { trigger: "mqtt", topic: "x" },
+        { trigger: "some_integration" },
+      ]) {
+        await expect(create(client, [kitchenOnAction], trigger)).rejects.toThrow(/trigger is not available/);
+      }
+      expect(wroteAutomation()).toBe(false);
+      await create(client, [kitchenOnAction], { trigger: "sun", event: "sunset" });
+      await create(client, [kitchenOnAction], {
+        trigger: "zone",
+        entity_id: "person.resident",
+        zone: "zone.home",
+        event: "enter",
+      });
+      expect(wroteAutomation()).toBe(true);
+    });
+
+    it("reads devices in templates only by their ids", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table", "sensor.kitchen_presence"));
+      const say = (message: string) => [{ action: "notify.mobile_app_phone", data: { message: `Now ${message}` } }];
+      for (const template of [
+        "{{ states | count }}",
+        "{{ states.light | list }}",
+        "{{ expand('group.x') }}",
+        "{{ area_entities('kitchen') }}",
+        "{{ closest(states.person) }}",
+        "{{ closest('group.family') }}",
+        "{% from 'x.jinja' import y %}{{ y() }}",
+        "{{ is_state('light.kitchen_table' | replace('light', 'x'), 'on') }}",
+        "{{ state_attr('light.kitchen_table'[:0] ~ 'x', 'y') }}",
+      ]) {
+        await expect(create(client, say(template))).rejects.toThrow(
+          /uses something you may not use|may not contain \{% %\}/
+        );
+      }
+      // an unexposed device read with spaced-out dots is still the same device
+      await expect(
+        create(client, say("{{ states . sensor . phone_next_alarm . state }}"))
+      ).rejects.toThrow(/sensor\.phone_next_alarm is not available/);
+      expect(wroteAutomation()).toBe(false);
+      for (const template of [
+        "{{ states('sensor.kitchen_presence') }}",
+        "{{ state_translated('sensor.kitchen_presence') }}",
+        "{{ is_state('sun.sun', 'above_horizon') }}",
+        "{{ state_attr(trigger.entity_id, 'friendly_name') }}",
+        "the distance is {{ states('sensor.kitchen_presence') }} metres",
+      ]) {
+        await create(client, say(template));
+      }
+      expect(wroteAutomation()).toBe(true);
+    });
+
+    it("reads a call's fields and variables as data, not as steps", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await create(client, [
+        { variables: { trigger: "manual", platform: "phone" } },
+        { action: "notify.mobile_app_phone", data: { message: "Lights on", data: { actions: [{ action: "OPEN", title: "Open" }] } } },
+      ]);
+      expect(wroteAutomation()).toBe(true);
+    });
+
+    it("does not fire events, use device steps or carry security codes", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table", "lock.front_door"));
+      await expect(create(client, [{ event: "my_event" }])).rejects.toThrow(/Firing an event/);
+      await expect(
+        create(client, [{ device_id: "abc123", domain: "light", type: "turn_on" }])
+      ).rejects.toThrow(/Device triggers, conditions and actions are not available/);
+      await expect(
+        create(client, [{ action: "lock.unlock", target: { entity_id: "lock.front_door" }, data: { code: "1" } }])
+      ).rejects.toThrow(/security code is not available/);
+      expect(wroteAutomation()).toBe(false);
+    });
+
+    it("refuses device steps with the exposure list turned off too", async () => {
+      const client = new HomeAssistantClient(baseConfig);
+      await expect(
+        create(client, [{ device_id: "abc123", domain: "light", type: "turn_on" }])
+      ).rejects.toThrow(/Device triggers, conditions and actions are not available/);
+      expect(wroteAutomation()).toBe(false);
+    });
+
+    it("writes no automation while nothing is exposed", async () => {
+      const client = new HomeAssistantClient(baseConfig, new AssistExposure(async () => new Set()));
+      await expect(
+        create(client, [{ action: "notify.mobile_app_phone", data: { message: "hi" } }])
+      ).rejects.toThrow(/has not exposed any devices/);
+      expect(wroteAutomation()).toBe(false);
+    });
+  });
+
+  describe("what a call may carry", () => {
+    it("refuses services outside the allowlist, whatever entity they name", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table", "media_player.living_room_speaker"));
+      for (const [domain, service, entity] of [
+        ["some_integration", "set_value", "light.kitchen_table"],
+        ["some_integration", "run", "media_player.living_room_speaker"],
+        ["input_select", "set_options", "light.kitchen_table"],
+        ["automation", "trigger", "light.kitchen_table"],
+      ] as const) {
+        await expect(client.callServiceAsAssistant(domain, service, entity, { value: 1 })).rejects.toThrow(
+          /is not available to you/
+        );
+      }
+      expect(calls.some((u) => u.includes("/api/services/"))).toBe(false);
+    });
+
+    it("does not count a voice engine as a device to act on", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await expect(
+        client.callServiceAsAssistant("light", "turn_off", "tts.nives_text_to_speech")
+      ).rejects.toThrow(/names no entity/);
+      const speaking = new HomeAssistantClient(baseConfig, exposing("media_player.living_room_speaker"));
+      await speaking.callServiceAsAssistant("tts", "speak", "tts.nives_text_to_speech", {
+        media_player_entity_id: "media_player.living_room_speaker",
+        message: "Dobro jutro",
+      });
+      expect(calls.some((u) => u.includes("/api/services/tts/speak"))).toBe(true);
+      expect(calls.some((u) => u.includes("/api/services/light/"))).toBe(false);
+    });
+
+    it("checks devices named inside a call's fields", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("script.good_night"));
+      await expect(
+        client.callServiceAsAssistant("script", "good_night", undefined, { light: "light.kitchen_table_1" })
+      ).rejects.toThrow(/light\.kitchen_table_1 is not available to you/);
+      await expect(
+        client.callServiceAsAssistant("script", "turn_on", "script.good_night", {
+          variables: { entity_id: "light.kitchen_table_1" },
+        })
+      ).rejects.toThrow(/light\.kitchen_table_1 is not available to you/);
+      await expect(
+        client.callServiceAsAssistant("script", "turn_on", "script.good_night", {
+          variables: { area_id: "kitchen" },
+        })
+      ).rejects.toThrow(/Targeting by area_id is not available/);
+      expect(calls.some((u) => u.includes("/api/services/script/"))).toBe(false);
+    });
+
+    it("plays only from allowed sources", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("media_player.living_room_speaker"));
+      await expect(
+        client.callServiceAsAssistant("media_player", "play_media", "media_player.living_room_speaker", {
+          media_content_id: "media-source://some_source/item",
+          media_content_type: "music",
+        })
+      ).rejects.toThrow(/is not available to you/);
+      await client.callServiceAsAssistant("media_player", "play_media", "media_player.living_room_speaker", {
+        media_content_id: "media-source://radio_browser/abc",
+        media_content_type: "music",
+      });
+      expect(calls.filter((u) => u.includes("/api/services/media_player/play_media"))).toHaveLength(1);
+    });
+
+    it("sends no notification when nothing is exposed, to another recipient, or as a phone command", async () => {
+      const empty = new HomeAssistantClient(baseConfig, new AssistExposure(async () => new Set()));
+      await expect(
+        empty.callServiceAsAssistant("notify", "mobile_app_phone", undefined, { message: "hi" })
+      ).rejects.toThrow(/has not exposed any devices/);
+      const unread = new HomeAssistantClient(baseConfig, new AssistExposure(async () => null));
+      await expect(
+        unread.callServiceAsAssistant("shopping_list", "add_item", undefined, { name: "milk" })
+      ).rejects.toThrow(/has not told the assistant yet/);
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await expect(
+        client.callServiceAsAssistant("notify", "email", undefined, { message: "hi", target: "x@example.com" })
+      ).rejects.toThrow(/"target" is not available/);
+      await expect(
+        client.callServiceAsAssistant("notify", "mobile_app_phone", undefined, { message: "command_dnd" })
+      ).rejects.toThrow(/command to the phone/);
+      expect(calls.some((u) => u.includes("/api/services/"))).toBe(false);
+    });
+
+    it("stops sending security codes after a few", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("lock.front_door"));
+      global.fetch = vi.fn(async (input: unknown) => {
+        const url = String(input);
+        calls.push(url);
+        if (url.endsWith("/api/services")) return json([]);
+        if (url.endsWith("/api/states")) return json(house);
+        if (url.includes("/api/services/lock/unlock")) return json({ message: "Invalid code" }, 400);
+        return json([]);
+      }) as unknown as typeof fetch;
+      for (let i = 0; i < 3; i++) {
+        await expect(
+          client.callServiceAsAssistant("lock", "unlock", "lock.front_door", { code: String(i) })
+        ).rejects.toThrow(/HA API error 400/);
+      }
+      await expect(
+        client.callServiceAsAssistant("lock", "unlock", "lock.front_door", { code: "3" })
+      ).rejects.toThrow(/has been sent a code 3 times/);
+      expect(calls.filter((u) => u.includes("/api/services/lock/unlock"))).toHaveLength(3);
+    });
+
+    it("counts codes sent at the same time, and refuses one sent to an area", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("lock.front_door"));
+      const results = await Promise.allSettled(
+        [0, 1, 2, 3, 4].map((i) =>
+          client.callServiceAsAssistant("lock", "unlock", "lock.front_door", { code: String(i) })
+        )
+      );
+      expect(results.filter((r) => r.status === "rejected")).toHaveLength(2);
+      await expect(
+        client.callServiceAsAssistant("lock", "unlock", undefined, { area_id: "hall", code: "1" })
+      ).rejects.toThrow(/named alarm or lock/);
+    });
+  });
+
+  describe("what an automation may call", () => {
+    const at7 = { platform: "time", at: "07:00:00" };
+
+    it("refuses a system action, exposed target or not, and writes nothing", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      for (const action of [
+        { service: "homeassistant.restart" },
+        { action: "hassio.host_reboot" },
+        { action: "shell_command.open_gate", data: { entity_id: "light.kitchen_table" } },
+        { action: "mqtt.publish", data: { topic: "zigbee2mqtt/front_door/set", payload: "UNLOCK" } },
+        { choose: [{ conditions: [], sequence: [{ action: "homeassistant.stop" }] }] },
+      ]) {
+        await expect(
+          client.createAutomation({ alias: "Reboot at 7", trigger: at7, action })
+        ).rejects.toThrow(/In this automation, .* is not available to you/);
+      }
+      expect(wroteAutomation()).toBe(false);
+    });
+
+    it("refuses a system action with the exposure list turned off too", async () => {
+      const client = new HomeAssistantClient(baseConfig);
+      await expect(
+        client.createAutomation({ alias: "Reboot", trigger: at7, action: { action: "hassio.host_reboot" } })
+      ).rejects.toThrow(/is not available to you/);
+      expect(wroteAutomation()).toBe(false);
+    });
+
+    it("refuses a templated action name, which could call anything", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await expect(
+        client.createAutomation({
+          alias: "Templated",
+          trigger: at7,
+          action: { action: "{{ 'homeassistant.' ~ 'restart' }}" },
+        })
+      ).rejects.toThrow(/templated action/);
+      expect(wroteAutomation()).toBe(false);
+    });
+
+    it("refuses an untargeted action and allows a notification", async () => {
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await expect(
+        client.createAutomation({ alias: "All off", trigger: at7, action: { action: "light.turn_off" } })
+      ).rejects.toThrow(/names no entity/);
+      expect(wroteAutomation()).toBe(false);
+
+      await client.createAutomation({
+        alias: "Wake-up message",
+        trigger: at7,
+        action: { action: "notify.mobile_app_phone", data: { message: "Good morning" } },
+      });
+      expect(wroteAutomation()).toBe(true);
+    });
+
+    it("an automation of the user's that does what the assistant may not is left to the user", async () => {
+      storedAutomation = {
+        id: "1700000000000",
+        alias: "Nightly restart",
+        triggers: [{ trigger: "time", at: "03:00:00" }],
+        actions: [{ action: "homeassistant.restart" }],
+      };
+      const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
+      await expect(
+        client.updateAutomation("1700000000000", { alias: "Restart at night" })
+      ).rejects.toThrow(/so you can't change it/);
+      await expect(
+        client.updateAutomation("1700000000000", { trigger: [{ trigger: "homeassistant", event: "start" }] })
+      ).rejects.toThrow(/so you can't change it/);
+  });
   });
 });

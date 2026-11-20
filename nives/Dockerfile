@@ -16,7 +16,7 @@ ARG SHODH_VERSION=v0.2.0
 ARG SHODH_SHA256_X64=abf2e255355c46ef9333342cc4b58234e032bfe8c4cbbdef81c814cdf58182ed
 ARG SHODH_SHA256_ARM64=8db8765efdb5fb5ac4b9ef4fc014eac329dcfc343bd426fd6c0f7553893e7665
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Detect architecture at build time (works with both legacy builder and BuildKit)
@@ -37,21 +37,36 @@ RUN ARCH=$(uname -m) \
 # `expected OrtGetApiBase to be present in libonnxruntime`. Seeding the cache at build time
 # with the correct v1.23.2 library + symlink (matching what ort 2.0-rc.11 expects) avoids
 # the runtime download + panic cycle and makes first boot clean.
+#
+# The libraries come from Microsoft's NuGet package (Microsoft.ML.OnnxRuntime),
+# which carries the same Linux builds as the GitHub release tarballs; the
+# microsoft/onnxruntime GitHub repository and its release downloads went
+# offline in November 2026. The package must match the SHA-512 nuget.org
+# publishes for it, and each library the SHA-256 of the exact file the GitHub
+# tarball held (the two were compared byte for byte on 2026-11-20).
 ARG ORT_VERSION=1.23.2
-ARG ORT_SHA256_X64=1fa4dcaef22f6f7d5cd81b28c2800414350c10116f5fdd46a2160082551c5f9b
-ARG ORT_SHA256_AARCH64=7c63c73560ed76b1fac6cff8204ffe34fe180e70d6582b5332ec094810241e5c
+ARG ORT_NUPKG_SHA512=b15027986e717e2e095bb614ef48d8eb3e24496682b77f6d9f24479eacbb4252c81c0e1167e981067cca50a0238496324f23c33f2f765ae8bb318fe4160b3698
+ARG ORT_LIB_SHA256_X64=13ab8084954fa4a47c777880180b90810d6020f021441395712b48a75b74c68b
+ARG ORT_SHARED_SHA256_X64=086ec1d5388f64153d9c63470d126693db9a182c8ce236d3a1119068471b8a0d
+ARG ORT_LIB_SHA256_AARCH64=648ffa64fbe027ae27139109410900cf776a030dec2dbbac51053318cc44c286
+ARG ORT_SHARED_SHA256_AARCH64=3b6be288fbfb7dff8770d08a23defdde18e8f7e0f5a2b344a0e5e238c999ea88
 RUN ARCH=$(uname -m) \
-    && ORT_ARCH=$(if [ "$ARCH" = "aarch64" ]; then echo "aarch64"; else echo "x64"; fi) \
-    && ORT_SHA256=$(if [ "$ARCH" = "aarch64" ]; then echo "${ORT_SHA256_AARCH64}"; else echo "${ORT_SHA256_X64}"; fi) \
-    && curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-${ORT_ARCH}-${ORT_VERSION}.tgz" \
-       -o /tmp/ort.tgz \
-    && echo "${ORT_SHA256}  /tmp/ort.tgz" | sha256sum -c - \
+    && ORT_RID=$(if [ "$ARCH" = "aarch64" ]; then echo "linux-arm64"; else echo "linux-x64"; fi) \
+    && LIB_SHA256=$(if [ "$ARCH" = "aarch64" ]; then echo "${ORT_LIB_SHA256_AARCH64}"; else echo "${ORT_LIB_SHA256_X64}"; fi) \
+    && SHARED_SHA256=$(if [ "$ARCH" = "aarch64" ]; then echo "${ORT_SHARED_SHA256_AARCH64}"; else echo "${ORT_SHARED_SHA256_X64}"; fi) \
+    && curl -fsSL "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/${ORT_VERSION}/microsoft.ml.onnxruntime.${ORT_VERSION}.nupkg" \
+       -o /tmp/ort.nupkg \
+    && echo "${ORT_NUPKG_SHA512}  /tmp/ort.nupkg" | sha512sum -c - \
     && mkdir -p /tmp/ort /root/.cache/shodh-memory/onnxruntime \
-    && tar -xzf /tmp/ort.tgz -C /tmp/ort --strip-components=1 \
-    && cp /tmp/ort/lib/libonnxruntime.so.${ORT_VERSION} /root/.cache/shodh-memory/onnxruntime/ \
-    && cp /tmp/ort/lib/libonnxruntime_providers_shared.so /root/.cache/shodh-memory/onnxruntime/ \
+    && unzip -q -j /tmp/ort.nupkg \
+       "runtimes/${ORT_RID}/native/libonnxruntime.so" \
+       "runtimes/${ORT_RID}/native/libonnxruntime_providers_shared.so" -d /tmp/ort \
+    && printf '%s  %s\n%s  %s\n' "${LIB_SHA256}" /tmp/ort/libonnxruntime.so \
+       "${SHARED_SHA256}" /tmp/ort/libonnxruntime_providers_shared.so | sha256sum -c - \
+    && cp /tmp/ort/libonnxruntime.so /root/.cache/shodh-memory/onnxruntime/libonnxruntime.so.${ORT_VERSION} \
+    && cp /tmp/ort/libonnxruntime_providers_shared.so /root/.cache/shodh-memory/onnxruntime/ \
     && ln -s libonnxruntime.so.${ORT_VERSION} /root/.cache/shodh-memory/onnxruntime/libonnxruntime.so \
-    && rm -rf /tmp/ort /tmp/ort.tgz
+    && rm -rf /tmp/ort /tmp/ort.nupkg
 
 # Pre-download MiniLM-L6-v2 ONNX model (pinned commit, same URLs Shodh uses)
 # Saves as model_quantized.onnx matching Shodh's expected filename

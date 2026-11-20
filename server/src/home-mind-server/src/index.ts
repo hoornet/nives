@@ -24,6 +24,7 @@ import { createSttService } from "./stt/stt-service.js";
 import { createTtsService } from "./tts/tts-service.js";
 import { MemoryCleanupJob } from "./jobs/memory-cleanup.js";
 import { scheduleCloudClosingNotice } from "./jobs/cloud-closing-notice.js";
+import { scheduleNothingExposedNotice } from "./jobs/nothing-exposed-notice.js";
 
 // Load configuration
 const config = loadConfig();
@@ -57,7 +58,9 @@ console.log(`  Fact extractor: ${config.llmProvider}/${config.llmModel}`);
 // One reading of "what may the assistant see", shared by the room map and the
 // tools. Home Assistant filters both from the same list; when only the layout
 // followed it, search_entities still returned every entity in the house.
-const exposure = new AssistExposure(() => fetchExposedEntities(config.haUrl, config.haToken));
+const exposure = new AssistExposure(() =>
+  fetchExposedEntities(config.haUrl, config.haToken, { skipTlsVerify: config.haSkipTlsVerify })
+);
 
 const ha = new HomeAssistantClient(config, config.toolsFromExposed ? exposure : undefined);
 console.log(`  Home Assistant: ${config.haUrl}`);
@@ -206,11 +209,18 @@ cleanupJob.start();
 // to its own key, and clear the old balance notifications in every mode.
 const cancelCloudNotice = scheduleCloudClosingNotice(ha, config.llmMode);
 
+// With the tools bounded, a home that exposes nothing gives the assistant
+// nothing to reach; tell the user why rather than leave Nives looking broken.
+const cancelExposureNotice = config.toolsFromExposed
+  ? scheduleNothingExposedNotice(ha, exposure)
+  : () => {};
+
 // Graceful shutdown
 process.on("SIGTERM", () => {
   console.log("Shutting down...");
   cleanupJob.stop();
   cancelCloudNotice();
+  cancelExposureNotice();
   conversations.close();
   memory.close();
   process.exit(0);
@@ -220,6 +230,7 @@ process.on("SIGINT", () => {
   console.log("Shutting down...");
   cleanupJob.stop();
   cancelCloudNotice();
+  cancelExposureNotice();
   conversations.close();
   memory.close();
   process.exit(0);

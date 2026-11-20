@@ -1,4 +1,5 @@
 import type { EntityState } from "./client.js";
+import { isVoiceEngine } from "./service-policy.js";
 
 /**
  * The entities exposed to Assist, read once per TTL and shared.
@@ -14,31 +15,29 @@ import type { EntityState } from "./client.js";
  * sides now share: the topology scanner uses it for the layout, and
  * `HomeAssistantClient` uses it to bound the tools.
  *
- * `null` means "no opinion", which is not the same as "expose nothing". An old
- * Home Assistant, a token without websocket access, a network error, and a user
- * who has exposed nothing all end up as `null`, and `null` filters nothing. A
- * failed websocket call that left the assistant unable to see a single device
- * would be far worse than the gap it is meant to close.
+ * The list is the boundary, so it fails closed. A user who has exposed nothing
+ * gets an assistant that can reach nothing (and a notification saying why, see
+ * `jobs/nothing-exposed-notice.ts`), not one that can reach everything. A list
+ * that has never been read, because Home Assistant was still starting or the
+ * websocket failed, is `null`, which also allows nothing; it is retried soon,
+ * and a read that fails later keeps the last good list.
  */
 /**
- * Domains the assistant may use whether or not they are exposed.
+ * Voice engines (`tts.*`) may be used whether or not they are exposed.
  *
- * A voice engine (`tts.*`) is not a device in the house: it turns text into
- * sound and can only be heard through a speaker, and the speaker is checked
+ * A voice engine is not a device in the house: it turns text into sound and
+ * can only be heard through a speaker, and the speaker is checked
  * (`media_player_entity_id`, see `ENTITY_LIST_KEYS`). Home Assistant does not
  * expose engines by default, so without this an announcement, including one
  * in Nives's own voice, would need the user to expose a voice engine to
- * Assist, which nobody thinks of as hiding or sharing a device.
+ * Assist, which nobody thinks of as hiding or sharing a device. The test is on
+ * a whole, well-formed id, since the id may end up in a request path.
  */
-const ALWAYS_ALLOWED_DOMAINS = ["tts"];
-
-function alwaysAllowed(entityId: string): boolean {
-  return ALWAYS_ALLOWED_DOMAINS.some((d) => entityId.startsWith(`${d}.`));
-}
+const alwaysAllowed = isVoiceEngine;
 
 export class AssistExposure {
   private entities: Set<string> | null = null;
-  /** When the cached answer (a list, or "no opinion") stops being good. */
+  /** When the cached answer (a list, or a failed first read) stops being good. */
   private expiresAt = 0;
   private inFlight: Promise<Set<string> | null> | null = null;
   /** When the last read finished, good or not; paces the re-read before a refusal. */
@@ -63,10 +62,10 @@ export class AssistExposure {
     private readonly missRefreshMs = 10 * 1000
   ) {}
 
-  /** The exposed entity IDs, or `null` for "no opinion". */
+  /** The exposed entity IDs, or `null` while the list has never been read. */
   async list(): Promise<Set<string> | null> {
-    // "No opinion" is cached as well, or every tool call in a home that exposes
-    // nothing would open a websocket of its own.
+    // A failed read is cached for `retryMs` as well, or every tool call while
+    // Home Assistant is unreachable would open a websocket of its own.
     if (Date.now() < this.expiresAt) {
       return this.entities;
     }
@@ -100,9 +99,9 @@ export class AssistExposure {
       this.expiresAt = Date.now() + this.retryMs;
       return this.entities;
     }
-    // An empty list cannot be told apart from a home that never opened the
-    // Expose page, so it is "no opinion" rather than a house with no devices.
-    this.entities = fetched.size > 0 ? fetched : null;
+    // An empty list is the user's answer too: nothing is exposed, so nothing
+    // may be reached.
+    this.entities = fetched;
     this.expiresAt = Date.now() + this.ttlMs;
     return this.entities;
   }
@@ -111,14 +110,14 @@ export class AssistExposure {
   async allows(entityId: string): Promise<boolean> {
     if (alwaysAllowed(entityId)) return true;
     const exposed = await this.list();
-    if (exposed === null || exposed.has(entityId)) return true;
+    if (exposed?.has(entityId)) return true;
     // A refusal is re-checked against a fresh read, so "expose it and ask
     // again" works on the first try. Paced, so a turn that names several
     // unexposed entities, or a model that keeps retrying, reads the list once.
     if (Date.now() - this.readAt < this.missRefreshMs) return false;
     this.expiresAt = 0;
     const fresh = await this.list();
-    return fresh === null || fresh.has(entityId);
+    return fresh?.has(entityId) ?? false;
   }
 
   /**
@@ -127,8 +126,7 @@ export class AssistExposure {
    */
   async filter(states: EntityState[]): Promise<EntityState[]> {
     const exposed = await this.list();
-    if (exposed === null) return states;
-    return states.filter((s) => exposed.has(s.entity_id) || alwaysAllowed(s.entity_id));
+    return states.filter((s) => exposed?.has(s.entity_id) || alwaysAllowed(s.entity_id));
   }
 }
 
@@ -144,5 +142,26 @@ export function notExposedMessage(entityId: string): string {
     `exposed it to the assistant (Settings → Voice assistants → Expose), so it is out of scope. ` +
     `Do not retry with a different spelling; tell the user it is not exposed, and that once they ` +
     `expose it, asking again will work.`
+  );
+}
+
+/** What the model is told when the user has exposed nothing at all. */
+export function nothingExposedMessage(): string {
+  return (
+    `The user has not exposed any devices to the assistant (Settings → Voice assistants → ` +
+    `Expose), so you can't act on anything. Tell them to expose what they want you to use; it ` +
+    `works as soon as they do.`
+  );
+}
+
+/**
+ * What the model is told when the exposure list could not be read yet, so it
+ * does not tell the user a device is unexposed when nobody knows.
+ */
+export function exposureUnavailableMessage(): string {
+  return (
+    `Home Assistant has not told the assistant yet which devices are exposed to it, so none can ` +
+    `be used right now. This usually clears within a minute of Home Assistant starting. Tell the ` +
+    `user to try again shortly, and to check the Nives add-on log if it keeps happening.`
   );
 }
