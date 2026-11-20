@@ -44,7 +44,7 @@ LLM_MODE=$(jq -r '.llm_mode // "byok"' "$OPTIONS")
 PROXY_KEY=$(jq -r '.cloud.api_key // ""' "$OPTIONS")
 CLOUD_TRANSCRIPTION=$(jq -r '.cloud.transcription // false' "$OPTIONS")
 CLOUD_VOICE=$(jq -r '.cloud.voice // "off"' "$OPTIONS")
-LLM_PROVIDER=$(jq -r '.byok.provider // "anthropic"' "$OPTIONS")
+LLM_PROVIDER=$(jq -r '.byok.provider // "openrouter"' "$OPTIONS")
 LLM_API_KEY=$(jq -r '.byok.api_key // ""' "$OPTIONS")
 LLM_MODEL=$(jq -r '.byok.model // ""' "$OPTIONS")
 LLM_BASE_URL=$(jq -r '.byok.base_url // ""' "$OPTIONS")
@@ -58,20 +58,41 @@ LAYOUT_DOMAINS=$(jq -r '.layout_domains // ""' "$OPTIONS")
 LOG_LEVEL=$(jq -r '.log_level // "info"' "$OPTIONS")
 
 # --- LLM configuration ---
-# The server needs to know the mode itself (not just its consequences): in
-# cloud mode it posts the Nives Cloud closing notice.
-write_env "LLM_MODE" "$LLM_MODE"
+# Nives Cloud closes on 1 December 2026 (UTC) and its keys stop working that
+# day. Cloud mode is used only while all three hold: LLM Mode is "cloud", a
+# Cloud key is set, and the day is before 1 December. Otherwise a saved "cloud"
+# falls through to the own-key (byok) settings, so nobody has to be at their
+# Home Assistant on the day for Nives to keep working.
+#
+# NIVES_TODAY (YYYYMMDD) exists only so tests can pick the day.
+TODAY="${NIVES_TODAY:-$(date -u +%Y%m%d)}"
+USE_CLOUD=false
 if [ "$LLM_MODE" = "cloud" ]; then
-    # Cloud mode: a Nives Cloud key. Nives Cloud closes on 2026-12-01 and its keys
-    # stop working that day; until then they run on the standard preset. Since
-    # 2.10.0 nothing is fetched from the Nives Cloud site: that call sent the key
-    # there on every start, and the domain outlives the service.
+    if [ -z "$PROXY_KEY" ]; then
+        echo "[init] LLM Mode is cloud but no Nives Cloud key is set, so Nives uses your own-key (byok) settings. You can set LLM Mode to byok."
+    elif [ "$TODAY" -lt 20261201 ]; then
+        USE_CLOUD=true
+    else
+        echo "[init] Nives Cloud has ended (1 December 2026), so Nives uses your own-key (byok) settings. You can set LLM Mode to byok."
+    fi
+fi
+
+# The server needs to know the saved mode itself, not just its consequences:
+# while it says "cloud" the server posts the Nives Cloud closing notice, which
+# after 1 December explains the switch. So "cloud" is written even when the
+# own-key settings are in use.
+write_env "LLM_MODE" "$LLM_MODE"
+if [ "$USE_CLOUD" = "true" ]; then
+    # Cloud mode: a Nives Cloud key, running on the standard preset until the
+    # closing day. Since 2.10.0 nothing is fetched from the Nives Cloud site:
+    # that call sent the key there on every start, and the domain outlives the
+    # service.
     write_env "LLM_PROVIDER" "openai"
     write_env "OPENAI_API_KEY" "$PROXY_KEY"
     write_env "OPENAI_BASE_URL" "https://openrouter.ai/api/v1"
     write_env "LLM_MODEL" "@preset/nives-standard"
-    echo "[init] Nives Cloud closes on 1 December 2026. Switch LLM Mode to byok with your own key;"
-    echo "[init]   the notification in Home Assistant explains how."
+    echo "[init] Nives Cloud closes on 1 December 2026. From that day Nives uses your own-key (byok)"
+    echo "[init]   settings by itself; add your own key there before then."
 else
     # BYOK mode: user provides their own API key
     write_env "LLM_PROVIDER" "$LLM_PROVIDER"
@@ -146,10 +167,11 @@ fi
 
 # --- Optional voice and transcription (opt-in, default off) ---
 # Both run on OpenRouter's speech endpoints, so they need an OpenRouter key: a
-# Nives Cloud key until it stops, or your own when Provider is openrouter. The
-# settings keep their old place in the "cloud" group so nobody's choice is lost.
+# Nives Cloud key while Cloud mode is in use (same rule as above), or your own
+# when Provider is openrouter. The settings keep their old place in the "cloud"
+# group so nobody's choice is lost.
 VOICE_KEY=""
-if [ "$LLM_MODE" = "cloud" ]; then
+if [ "$USE_CLOUD" = "true" ]; then
     VOICE_KEY="$PROXY_KEY"
 elif [ "$LLM_PROVIDER" = "openrouter" ]; then
     VOICE_KEY="$LLM_API_KEY"
@@ -299,4 +321,12 @@ write_env "LOG_LEVEL" "$LOG_LEVEL"
 [ -n "$TOOLS_FROM_EXPOSED" ] && write_env "TOOLS_FROM_EXPOSED" "$TOOLS_FROM_EXPOSED"
 [ -n "$LAYOUT_DOMAINS" ] && write_env "LAYOUT_DOMAINS" "$LAYOUT_DOMAINS"
 
-echo "[init] Environment configured (mode=${LLM_MODE}, provider=${LLM_PROVIDER:-cloud}, max_output_tokens=${MAX_OUTPUT_TOKENS:-default}, reasoning_effort=${REASONING_EFFORT:-default})"
+# What is actually in use, which after 1 December can differ from what is saved.
+if [ "$USE_CLOUD" = "true" ]; then
+    EFFECTIVE="mode=cloud, provider=Nives Cloud key"
+elif [ "$LLM_MODE" = "byok" ]; then
+    EFFECTIVE="mode=byok, provider=${LLM_PROVIDER}"
+else
+    EFFECTIVE="mode=byok (saved: ${LLM_MODE}), provider=${LLM_PROVIDER}"
+fi
+echo "[init] Environment configured (${EFFECTIVE}, max_output_tokens=${MAX_OUTPUT_TOKENS:-default}, reasoning_effort=${REASONING_EFFORT:-default})"
