@@ -223,7 +223,7 @@ Only specify what needs changing — unspecified fields use auto-detected values
 
 If you're running Home Assistant and want a **one-click setup**, check out the **[Nives add-on](https://github.com/hoornet/nives)** (formerly HomeMind PRO).
 
-It bundles everything (server + Shodh Memory) into a single HA add-on — no Docker, no manual config, no terminal. Add the repository in HA Supervisor, install, and you're done. Supports both cloud mode (managed API key) and BYOK (bring your own key).
+It bundles everything (server + Shodh Memory) into a single HA add-on — no Docker, no manual config, no terminal. Add the repository in HA Supervisor, install, and you're done. It runs on your own API key (BYOK) with Anthropic, OpenAI, OpenRouter or Mistral, or on a local Ollama.
 
 The self-hosted Docker Compose setup below is for advanced users who want full control or are running Home Mind outside of Home Assistant.
 
@@ -248,7 +248,7 @@ The self-hosted Docker Compose setup below is for advanced users who want full c
 - [x] Home Layout Index (floor/room awareness via HA template API)
 - [x] Server-side STT (`POST /api/stt`, OpenAI Whisper)
 - [x] Server-side TTS (`POST /api/tts`, OpenAI TTS API)
-- [x] Nives HA Add-on (one-click install, cloud + BYOK; formerly HomeMind PRO)
+- [x] Nives HA Add-on (one-click install, BYOK; formerly HomeMind PRO)
 - [ ] Multi-user support (OIDC)
 
 ## Documentation

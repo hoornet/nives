@@ -1,0 +1,47 @@
+#!/command/with-contenv bash
+# Nives Cloud ends on 1 December 2026, but options-to-env.sh decides between
+# Cloud mode and the own-key settings only when the add-on starts. An add-on
+# still running in Cloud mode when the day comes would keep using a key that
+# no longer works until something restarted it. So while Cloud mode is in use
+# (options-to-env.sh sets NIVES_CLOUD_ENDS), this waits until a minute past
+# midnight UTC on that day and restarts the add-on through the Supervisor. The
+# new start then uses the own-key settings, or shows the "needs an API key"
+# notification, with nothing for the user to do on the day.
+#
+# Otherwise there is nothing to do, and a longrun that exits is restarted by
+# s6, so it sleeps instead.
+
+if [ -z "${NIVES_CLOUD_ENDS:-}" ]; then
+    exec sleep infinity
+fi
+
+TOKEN="${SUPERVISOR_TOKEN:-}"
+if [ -z "$TOKEN" ] && [ -f /var/run/s6/container_environment/SUPERVISOR_TOKEN ]; then
+    TOKEN=$(cat /var/run/s6/container_environment/SUPERVISOR_TOKEN)
+fi
+if [ -z "$TOKEN" ]; then
+    echo "[cloud-switch] No SUPERVISOR_TOKEN; restart the add-on on ${NIVES_CLOUD_ENDS} to use your own-key settings."
+    exec sleep infinity
+fi
+
+SWITCH_AT=$(date -u -d "${NIVES_CLOUD_ENDS} 00:01" +%s)
+WAIT=$((SWITCH_AT - $(date -u +%s)))
+echo "[cloud-switch] Nives Cloud ends on ${NIVES_CLOUD_ENDS}. The add-on will restart itself then to use your own-key settings."
+if [ "$WAIT" -gt 0 ]; then
+    sleep "$WAIT"
+fi
+
+for attempt in 1 2 3 4 5 6; do
+    echo "[cloud-switch] Nives Cloud has ended; restarting the add-on to use your own-key settings."
+    # A successful call stops this container, so it rarely gets to answer.
+    # Never exit here: s6 would run this again and restart the add-on again.
+    if curl -sf -o /dev/null --max-time 30 -X POST \
+        -H "Authorization: Bearer ${TOKEN}" \
+        "http://supervisor/addons/self/restart"; then
+        exec sleep infinity
+    fi
+    sleep 300
+done
+
+echo "[cloud-switch] Could not restart the add-on. Restart it yourself to use your own-key settings."
+exec sleep infinity

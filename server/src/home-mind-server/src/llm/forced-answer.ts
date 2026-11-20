@@ -21,6 +21,15 @@ export type ForcedAnswerParam = { tool_choice?: "none"; nudge?: boolean };
 export const FINAL_ANSWER_NUDGE =
   "Stop calling tools now. Answer the request in words, using only what you have found so far.";
 
+/**
+ * The hint both engines attach when the forced last turn still asks for a
+ * tool and writes nothing: the loop has stopped, so the call is not run, and
+ * an empty reply must not look like success.
+ */
+export const TOOL_CAP_HINT =
+  "Nives reached its limit of lookups for one request and the model did not write an answer. " +
+  "Try asking for less at once, or try a different model.";
+
 /** `${endpoint} ${model}` pairs that refused `tool_choice: "none"`. */
 const rejectsToolChoiceNone = new Set<string>();
 

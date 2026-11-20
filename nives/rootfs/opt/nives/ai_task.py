@@ -190,7 +190,7 @@ class NivesAITaskEntity(ai_task.AITaskEntity):
                 if response.status == 402:
                     raise HomeAssistantError(
                         "Nives is out of credit on its API key. Add credit with your provider, "
-                        "or switch to your own key in the Nives add-on settings."
+                        "or use another key in the Nives add-on's configuration."
                     )
                 if response.status != 200:
                     raise HomeAssistantError(

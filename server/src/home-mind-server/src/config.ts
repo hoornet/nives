@@ -11,7 +11,7 @@ const ConfigSchema = z
     // add-on's options-to-env.sh; standalone deployments default to byok.
     llmMode: z.enum(["cloud", "byok"]).default("byok"),
     llmProvider: z.enum(["anthropic", "openai", "ollama"]).default("anthropic"),
-    llmModel: z.string().default("claude-haiku-4-5-20251001"),
+    llmModel: z.string().default("claude-haiku-5-5"),
     anthropicApiKey: z.string().optional(),
     openaiApiKey: z.string().optional(),
     openaiBaseUrl: z.string().url().optional(),

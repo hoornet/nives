@@ -52,7 +52,7 @@ describe("loadConfig", () => {
     expect(config.port).toBe(3100);
     expect(config.logLevel).toBe("info");
     expect(config.llmProvider).toBe("anthropic");
-    expect(config.llmModel).toBe("claude-haiku-4-5-20251001");
+    expect(config.llmModel).toBe("claude-haiku-5-5");
     expect(config.haUrl).toBe("http://localhost:8123");
     expect(config.haToken).toBe("test-token");
     expect(config.shodhUrl).toBe("http://localhost:3030");
@@ -110,7 +110,7 @@ describe("loadConfig", () => {
     // Empty LLM_PROVIDER falls back to default "anthropic"
     expect(config.llmProvider).toBe("anthropic");
     // Empty LLM_MODEL falls back to default
-    expect(config.llmModel).toBe("claude-haiku-4-5-20251001");
+    expect(config.llmModel).toBe("claude-haiku-5-5");
     // Empty optional fields become undefined
     expect(config.openaiApiKey).toBeUndefined();
     expect(config.openaiBaseUrl).toBeUndefined();

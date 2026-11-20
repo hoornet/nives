@@ -10,6 +10,7 @@ import { HA_TOOLS } from "./tools.js";
 import { randomUUID } from "node:crypto";
 import { handleToolCall, extractAndStoreFacts, type ToolContext } from "./tool-handler.js";
 import { describeLongBatch } from "./long-task.js";
+import { TOOL_CAP_HINT } from "./forced-answer.js";
 import { toStreamEvents } from "./interface.js";
 import {
   readUsage,
@@ -246,11 +247,20 @@ export class LLMClient implements IChatEngine {
 
     // 8. Nothing usable came back: say why, so the integration can show a real
     // hint instead of "I received your request but got no response."
+    //
+    // A model that still asks for a tool on the forced last turn has given no
+    // answer: the loop has stopped and the call is not run. Say so, as the
+    // OpenAI engine does, rather than return an empty reply that looks like
+    // success. (The loop only reaches MAX_TOOL_ITERATIONS by forcing that turn.)
     const toolUseCount = response.content.filter((c) => c.type === "tool_use").length;
     const error: ChatError | undefined =
-      responseText === "" && toolUseCount === 0
-        ? this.classifyEmptyResponse(response.stop_reason)
-        : undefined;
+      responseText !== ""
+        ? undefined
+        : toolUseCount === 0
+          ? this.classifyEmptyResponse(response.stop_reason)
+          : iterations >= MAX_TOOL_ITERATIONS
+            ? { code: "EMPTY_CONTENT", hint: TOOL_CAP_HINT }
+            : undefined;
 
     // A reply that ran out of room but did write something is the common case,
     // and the integration returns text whenever there is any, so `error` would

@@ -8,7 +8,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 - A conversation server (Node.js/Express, hard fork of `home-mind`) — AI conversation engine with HA tool integration
 - **Shodh Memory** (Rust) — Cognitive memory with semantic search, Hebbian learning, and natural decay
 
-Nives is distributed as a single HA add-on. Users install it from the add-on store, add their own API key (BYOK), and get a working AI assistant for their smart home. Nives Cloud, the managed option, closes on 2026-12-01; its keys stop working that day.
+Nives is distributed as a single HA add-on. Users install it from the add-on store, add their own API key (BYOK), and get a working AI assistant for their smart home. Nives Cloud, the managed option, closes on 2026-12-01; its keys stop working that day, and from then the add-on uses the BYOK settings by itself.
 
 > Previously released as **HomeMind PRO** (v1.x). Renamed to **Nives** at v2.0.0 — see the addon's `CHANGELOG.md` for the migration story.
 
@@ -62,8 +62,15 @@ HA Core
 
 ### Two LLM Modes
 
-- **Cloud** (`llm_mode: "cloud"`): a Nives Cloud key, closing 2026-12-01. Sets `LLM_PROVIDER=openai` + `OPENAI_BASE_URL=<cloud_endpoint>` + `OPENAI_API_KEY=<cloud_key>` and a fixed preset; nothing is fetched at boot since 2.10.0. The server posts a notification explaining the switch to BYOK. Kept in the schema so existing options stay valid; remove it in a later release.
+- **Cloud** (`llm_mode: "cloud"`): a Nives Cloud key, until 2026-12-01. Used only while all three hold: `llm_mode` is `cloud`, `cloud.api_key` is set, and the UTC day (`date -u +%Y%m%d`) is before `20261201`; `NIVES_TODAY=YYYYMMDD` overrides the day, for tests. Then it sets `LLM_PROVIDER=openai` + `OPENAI_BASE_URL=<cloud_endpoint>` + `OPENAI_API_KEY=<cloud_key>` and a fixed preset; nothing is fetched at boot since 2.10.0. Otherwise a saved `cloud` falls through to the BYOK settings by itself and the log says so. That check runs only at start, so while Cloud mode is in use `options-to-env.sh` also writes `NIVES_CLOUD_ENDS=2026-12-01`, and the `cloud-switch` longrun restarts the add-on through the Supervisor (`POST http://supervisor/addons/self/restart`) at 00:01 UTC that day; otherwise it just sleeps. It never exits after a restart call, since s6 would run it again. `LLM_MODE=cloud` is written either way, so the server keeps posting its closing notice, which says "has closed" from 1 December. The voice/transcription key follows the same rule.
+- **Removing it:** `llm_mode` and `cloud.api_key` stay in the schema so saved options stay valid; remove them in a later release. Keep the `cloud` group's `transcription` and `voice` fields where they are: the Supervisor drops option keys missing from the schema, so renaming or moving them would silently lose users' voice settings.
 - **BYOK** (`llm_mode: "byok"`, the default since 2.10.0): user provides their own Anthropic/OpenAI/OpenRouter/Mistral/Ollama credentials. Direct API calls, no proxy involved. With Provider `openrouter`, the voice and transcription options work on the user's key.
+
+### No API key: `nives_needs_key`
+
+If the provider in use needs a key (every one but Ollama) and none is set, `options-to-env.sh` writes `NIVES_NEEDS_KEY=<provider>`. The `nives-server` run script then does not start the server: it posts the `nives_needs_key` persistent notification through the Supervisor proxy, retrying every 30 s until Home Assistant answers, and ends in `exec sleep infinity` so s6 has nothing to restart (before 2.11.0 the server failed its config check and s6 restarted it every 3 s, with nothing shown in Home Assistant). `discovery` skips at once. The server dismisses `nives_needs_key` at startup, with the other startup notices, so it goes away once a key is set. The notification does not mention Nives Cloud; the server's closing notice covers that.
+
+`config.yaml` has no `watchdog:` URL, so the Supervisor does not probe port 3100; its watchdog switch, when a user turns it on, watches for the container stopping, and the container keeps running while the run script waits. A `watchdog:` probing port 3100 would see a waiting add-on as down, so revisit this wait before adding one.
 
 ### HA Integration (Automatic)
 
@@ -93,6 +100,7 @@ nives/
       shodh/                       # Longrun: Shodh Memory server
       nives-server/                # Longrun: Node.js conversation server (depends on shodh)
       shodh-watchdog/              # Longrun: RSS monitor, restarts shodh if >512MB
+      cloud-switch/                # Longrun: restarts the add-on on 2026-12-01 if still in Cloud mode
       install-integration/         # Oneshot: copies HA integration into /config
       discovery/                   # Oneshot: announces add-on to Supervisor
       user/contents.d/             # Bundle definition (which services to start)

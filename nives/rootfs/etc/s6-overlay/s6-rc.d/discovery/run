@@ -2,6 +2,15 @@
 # Send discovery message to HA Supervisor so the companion integration
 # auto-configures without manual URL entry.
 
+# No API key: nives-server/run waits instead of starting the server, so there
+# is nothing to announce, and waiting a minute for its health would only end in
+# a misleading "did not become healthy". Saving a key restarts the add-on, and
+# this runs again then.
+if [ -n "${NIVES_NEEDS_KEY:-}" ]; then
+    echo "[discovery] No API key set, so the server is not running; skipping discovery until the add-on restarts with one"
+    exit 0
+fi
+
 # Only run if we have a Supervisor token (i.e., running inside HA)
 SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN:-}"
 if [ -z "$SUPERVISOR_TOKEN" ] && [ -f /var/run/s6/container_environment/SUPERVISOR_TOKEN ]; then

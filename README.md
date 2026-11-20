@@ -91,7 +91,7 @@ Two services share that container:
 
 Nives needs a language model to do the thinking, and it runs on **your own** provider key: Anthropic, OpenAI, OpenRouter, Mistral, or a local Ollama endpoint, picked in the add-on's **Configuration** tab. Nothing to buy from us, ever. Not sure where to start? An OpenRouter key with Claude Haiku 5.5, the default there, is what we'd pick: it is good at running a home and inexpensive.
 
-> **Nives Cloud is closing.** Its keys stop working on 1 December 2026. If you use one, set **LLM Mode** to `byok` and add your own key before then; your memories, automations and settings stay as they are.
+> **Nives Cloud ends on 1 December 2026.** A Cloud key keeps working until then. From that day the add-on uses your own-key settings by itself, and if no key is set, Home Assistant shows a notification saying what to add. Your memories, automations and settings stay as they are.
 
 A few honest notes so it goes smoothly:
 

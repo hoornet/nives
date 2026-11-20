@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { handleToolCall, extractAndStoreFacts, type ToolContext } from "./tool-handler.js";
 import { withTokenCap } from "./token-cap.js";
 import { withReasoningEffort } from "./reasoning-effort.js";
-import { FINAL_ANSWER_NUDGE, withForcedAnswer } from "./forced-answer.js";
+import { FINAL_ANSWER_NUDGE, TOOL_CAP_HINT, withForcedAnswer } from "./forced-answer.js";
 import { describeLongBatch } from "./long-task.js";
 import {
   readUsage,
@@ -276,12 +276,7 @@ export class OpenAIChatEngine implements IChatEngine {
       responseText !== ""
         ? undefined
         : result.toolCalls.length > 0
-          ? {
-              code: "EMPTY_CONTENT" as const,
-              hint:
-                "Nives reached its limit of lookups for one request and the model did not write an answer. " +
-                "Try asking for less at once, or try a different model.",
-            }
+          ? { code: "EMPTY_CONTENT" as const, hint: TOOL_CAP_HINT }
           : this.classifyEmptyResponse(result.finishReason, result.usage);
 
     // A reply that ran out of room but did write something is the *common* case,

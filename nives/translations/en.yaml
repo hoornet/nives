@@ -2,10 +2,11 @@ configuration:
   llm_mode:
     name: LLM Mode
     description: >-
-      Choose "byok" to use your own API key. "cloud" is only for Nives Cloud keys,
-      which stop working on 1 December 2026.
+      Choose "byok" to use your own API key. "cloud" is only for Nives Cloud keys
+      and ends on 1 December 2026. From that day Nives uses your Bring Your Own
+      Key settings by itself, even if this still says "cloud".
   cloud:
-    name: "Voice, transcription and Nives Cloud"
+    name: "Voice, transcription and Nives Cloud (until 1 December 2026)"
     description: >-
       Nives voice and transcription work with your own OpenRouter key (LLM Mode
       "byok", Provider "openrouter").
@@ -13,10 +14,11 @@ configuration:
       1 December 2026.
     fields:
       api_key:
-        name: Nives Cloud Key
+        name: Nives Cloud Key (ends 1 December 2026)
         description: >-
           Only for LLM Mode "cloud". Nives Cloud keys stop working on 1 December
-          2026; switch LLM Mode to "byok" and add your own key before then.
+          2026. From that day Nives uses your Bring Your Own Key settings by
+          itself, so add your own key there before then.
       transcription:
         name: Transcription (let Nives do the listening)
         description: >-
@@ -49,7 +51,8 @@ configuration:
       Settings for using your own API key. Your model must support function/tool
       calling, which is how Nives controls your home. Going deep on local or
       custom models? The open-source home-mind project is built around that, and
-      it is the same engine. Only used when LLM Mode is "byok".
+      it is the same engine. Used when LLM Mode is "byok", and from 1 December
+      2026 also when it still says "cloud".
     fields:
       provider:
         name: Provider

@@ -136,23 +136,15 @@
   <line x1="800" y1="518" x2="878" y2="518" stroke="#10b981" stroke-width="2" marker-end="url(#arrEm)" marker-start="url(#arrEm)"/>
 
   <!-- ===================== THE MODEL (OUTSIDE) ===================== -->
-  <text x="1045" y="404" text-anchor="middle" font-size="14" font-weight="700" fill="#f1f5f9">The model does the thinking</text>
-  <text x="1045" y="424" text-anchor="middle" font-size="11" fill="#94a3b8">pick one — swap any time</text>
+  <text x="1045" y="439" text-anchor="middle" font-size="14" font-weight="700" fill="#f1f5f9">The model does the thinking</text>
+  <text x="1045" y="459" text-anchor="middle" font-size="11" fill="#94a3b8">pick a provider, swap any time</text>
 
   <g filter="url(#glow)">
-    <rect x="880" y="440" width="330" height="86" rx="12" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
-    <text x="1045" y="468" text-anchor="middle" font-size="12.5" font-weight="600" fill="#a7f3d0">Nives Cloud</text>
-    <text x="1045" y="487" text-anchor="middle" font-size="10.5" fill="#94a3b8">one key, one plan, no model to choose</text>
-    <text x="1045" y="504" text-anchor="middle" font-size="10.5" fill="#94a3b8">we keep it on the best one for the price</text>
-    <text x="1045" y="519" text-anchor="middle" font-size="10" fill="#64748b">optional — nothing is locked behind it</text>
-  </g>
-
-  <g filter="url(#glow)">
-    <rect x="880" y="540" width="330" height="86" rx="12" fill="#1e293b" stroke="#475569"/>
-    <text x="1045" y="568" text-anchor="middle" font-size="12.5" font-weight="600" fill="#e2e8f0">Your own key</text>
-    <text x="1045" y="587" text-anchor="middle" font-size="10.5" fill="#94a3b8">Anthropic · OpenAI · OpenRouter · Ollama</text>
-    <text x="1045" y="604" text-anchor="middle" font-size="10.5" fill="#94a3b8">your account, your model, your bill</text>
-    <text x="1045" y="619" text-anchor="middle" font-size="10" fill="#64748b">free — never touches our servers</text>
+    <rect x="880" y="475" width="330" height="86" rx="12" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
+    <text x="1045" y="503" text-anchor="middle" font-size="12.5" font-weight="600" fill="#a7f3d0">Your own key</text>
+    <text x="1045" y="522" text-anchor="middle" font-size="10.5" fill="#94a3b8">Anthropic · OpenAI · OpenRouter · Mistral · Ollama</text>
+    <text x="1045" y="539" text-anchor="middle" font-size="10.5" fill="#94a3b8">your account, your model, your bill</text>
+    <text x="1045" y="554" text-anchor="middle" font-size="10" fill="#64748b">free — never touches our servers</text>
   </g>
 
   <!-- what actually crosses -->

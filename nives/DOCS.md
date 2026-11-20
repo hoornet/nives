@@ -32,9 +32,9 @@ Nives bundles two services in one add-on:
 
 ---
 
-## Nives Cloud is closing
+## Nives Cloud ends on 1 December 2026
 
-Nives Cloud closes on 1 December 2026, and its keys stop working that day. If you use a Nives Cloud key, switch to your own key before then: set **LLM Mode** to `byok` and follow [Setup](#setup) below. Your memories, automations and settings stay as they are, and Nives posts a notification in Home Assistant with the same steps.
+Nives Cloud ends on 1 December 2026. Until then, a Nives Cloud key keeps working as before. From that day the add-on uses your own-key settings by itself, even if **LLM Mode** still says `cloud`, so there is nothing to do on the day. If it is running at the time, it restarts itself just after midnight (UTC) to make the switch. Add your own key before then by following [Setup](#setup) below; your memories, automations and settings stay as they are. If no key is set by then, Home Assistant shows a notification saying what to add and where.
 
 ---
 
@@ -146,11 +146,13 @@ Going deep on local or Ollama setups? The open-source [home-mind](https://github
    - Set a **Model** — optional for Anthropic, OpenAI, OpenRouter and Mistral (each has a sensible default; on OpenRouter it is Claude Haiku 5.5); **required for Ollama**, where you must enter the model you pulled (e.g. `qwen3:8b`)
 3. Save and start the add-on
 
+If no API key is set for the selected provider (Ollama needs none), the add-on does not start the assistant. Instead Home Assistant shows a notification, **Nives needs an API key**, saying where to get one and where to enter it. Save a key and restart the add-on, and the notification goes away.
+
 ### BYOK Configuration
 
 | Option | Description |
 |--------|-------------|
-| LLM Mode | Set to `byok` |
+| LLM Mode | Set to `byok`. From 1 December 2026 these settings are used even if it still says `cloud` |
 | Provider | `anthropic`, `openai`, `openrouter`, `mistral`, or `ollama` |
 | API Key | Your provider API key |
 | Model | Model ID. Optional for Anthropic / OpenAI / OpenRouter / Mistral; **required for Ollama** |
@@ -276,7 +278,7 @@ It goes to whichever provider's key you entered, and we're not in the path at al
 
 ## Troubleshooting
 
-- **Add-on won't start**: Check the Log tab. Most common issue: missing or invalid API key.
+- **Nives doesn't answer, or a notification says Nives needs an API key**: Add your key in the add-on's Configuration (see [Setup](#setup)) and restart the add-on. If a key is set and it still doesn't answer, check the Log tab: an invalid key is the most common cause.
 - **Nives doesn't appear in Voice assistants**: Restart Home Assistant Core once after the add-on starts — there should be a notification (or, after updates, a repair under Settings > Repairs) reminding you.
 - **Nives forgot something you told it**: look in the add-on log for a line starting with `[memory] Memory bucket`. It appears when a request used an empty memory while another one holds facts, which means **Shared memory** is off (see [One memory for the whole household](#one-memory-for-the-whole-household)) or a script is choosing its own memory name.
 - **Slow responses**: LLM responses can take 10–60 seconds depending on the model and tool usage. This is normal.

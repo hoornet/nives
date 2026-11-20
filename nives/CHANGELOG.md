@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.11.0
+
+- **Your own Anthropic key now gets Claude Haiku 5.5 by default.** If you use an Anthropic key and left **Model** empty, Nives now uses Claude Haiku 5.5 (`claude-haiku-5-5`) instead of Claude Haiku 4.5. It is the model Nives already picks on OpenRouter, and it did best in our home-control tests. To stay on Claude Haiku 4.5, set **Model** to `claude-haiku-4-5-20251001`. If you chose a model yourself, nothing changes.
+- **With an Anthropic key, a model written the way OpenRouter names it now works too.** If **Model** says, for example, `anthropic/claude-haiku-5.5`, Nives uses Anthropic's name for the same model, `claude-haiku-5-5`, and says so in the log. Spaces before or after a key, model or address in the configuration are ignored too.
+- **A Nives Cloud key keeps working until 1 December 2026, and then Nives switches by itself.** From 1 December the add-on uses your Bring Your Own Key settings, even if **LLM Mode** still says `cloud`, so there is nothing to do on the day. If it is running at the time, it restarts itself just after midnight (UTC) to make the switch. Add your own key under Bring Your Own Key before then, and your memories, automations and settings stay as they are.
+- **If no API key is set, Home Assistant tells you.** When the selected provider needs a key and none is set, Home Assistant shows a notification, "Nives needs an API key", saying where to get one and where to enter it. Save the key and restart the add-on, and the notification goes away; until then it comes back every 6 hours, since Home Assistant forgets notifications when it restarts. Ollama needs no key, so nothing changes there.
+- With your own Anthropic key, a request that needs many lookups now ends the same way as with the other providers: if the model still asks for more lookups instead of answering, Nives tells you it could not answer rather than staying silent.
+- When a key runs out of credit, the message now points to your provider or to using another key in the add-on's configuration. If you set up the integration by hand, the API token field and its error message now describe the token the add-on creates for you.
+- The libraries Nives uses to reach the model providers and to keep your conversation history are updated.
+- Home Assistant will ask for one restart, as with every update. Server 0.20.0.
+
 ## 2.10.1
 
 - **Nives keeps strictly to what you have exposed to Assist.** This is a security update, and we recommend installing it.

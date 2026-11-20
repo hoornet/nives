@@ -306,8 +306,8 @@ class NivesConversationAgent(ConversationEntity):
                 "message": (
                     "Nives has used up the credit on its API key. "
                     "Add credit with your provider and Nives picks right "
-                    "back up. A Nives Cloud key stops working on 1 December "
-                    "2026: switch LLM Mode to byok with your own key."
+                    "back up, or use another key in the Nives add-on's "
+                    "configuration."
                 ),
                 "notification_id": "nives_out_of_credit",
             },
@@ -381,8 +381,8 @@ class NivesConversationAgent(ConversationEntity):
                     "message": (
                         "Nives has used up the credit on its API key. "
                         "Add credit with your provider and Nives picks right "
-                        "back up. A Nives Cloud key stops working on 1 December "
-                        "2026: switch LLM Mode to byok with your own key."
+                        "back up, or use another key in the Nives add-on's "
+                        "configuration."
                     ),
                     "notification_id": "nives_out_of_credit",
                 },
