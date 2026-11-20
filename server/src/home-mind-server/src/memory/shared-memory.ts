@@ -75,7 +75,7 @@ export function createEmptyBucketCheck(
           `is on in the Nives integration's options (Settings > Devices & services > Nives > Configure).`
       );
     } catch (err) {
-      console.debug(`[memory] Empty-memory check for "${userId}" failed:`, err);
+      console.debug('[memory] Empty-memory check for "%s" failed:', userId, err);
     }
   };
 }
@@ -91,7 +91,7 @@ async function readMarker(markerPath: string): Promise<Record<string, unknown>> 
     if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
       // Unreadable is treated as "never merged": the duplicate check below
       // still keeps a repeat merge from copying anything twice.
-      console.warn(`[memory-merge] Could not read ${markerPath}, ignoring it:`, err);
+      console.warn("[memory-merge] Could not read %s, ignoring it:", markerPath, err);
     }
     return {};
   }

@@ -110,7 +110,7 @@ export class MemoryCleanupJob {
 
         result.usersProcessed++;
       } catch (err) {
-        console.error(`[cleanup] Failed to clean facts for ${userId}:`, err);
+        console.error("[cleanup] Failed to clean facts for %s:", userId, err);
       }
     }
 

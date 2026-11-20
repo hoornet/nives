@@ -137,8 +137,8 @@ else
                 echo "[init]          otherwise chat will fail with a model-not-found error."
                 ;;
             anthropic)
-                # The server's built-in default is already an Anthropic model.
-                :
+                write_env "LLM_MODEL" "claude-haiku-5-5"
+                echo "[init] No model set — defaulting to claude-haiku-5-5"
                 ;;
         esac
     fi

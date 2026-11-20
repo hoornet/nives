@@ -156,7 +156,7 @@ Server requires: `HA_URL`, `HA_TOKEN`, `SHODH_URL`, `SHODH_API_KEY`, plus the AP
 
 LLM config:
 - `LLM_PROVIDER` — `anthropic` (default), `openai`, or `ollama`
-- `LLM_MODEL` — model ID (default: `claude-haiku-4-5-20251001`; must be set explicitly for Ollama)
+- `LLM_MODEL` — model ID (default: `claude-haiku-5-5`; must be set explicitly for Ollama)
 - `ANTHROPIC_API_KEY` — required when `LLM_PROVIDER=anthropic`
 - `OPENAI_API_KEY` — required when `LLM_PROVIDER=openai`
 - `OPENAI_BASE_URL` — optional, for OpenAI-compatible APIs (Azure, local proxies)

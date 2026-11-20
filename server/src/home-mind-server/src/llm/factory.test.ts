@@ -160,7 +160,7 @@ describe("createFactExtractor", () => {
     const config = {
       llmProvider: "anthropic",
       anthropicApiKey: "ant-key",
-      llmModel: "claude-haiku-4-5-20251001",
+      llmModel: "claude-haiku-5-5",
     } as Config;
 
     const extractor = createFactExtractor(config);
@@ -168,7 +168,7 @@ describe("createFactExtractor", () => {
     expect(extractor).toBeInstanceOf(FactExtractor);
     expect(FactExtractorSpy).toHaveBeenCalledWith(
       "ant-key",
-      "claude-haiku-4-5-20251001"
+      "claude-haiku-5-5"
     );
   });
 

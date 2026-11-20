@@ -7,7 +7,7 @@ export class FactExtractor implements IFactExtractor {
   private client: Anthropic;
   private model: string;
 
-  constructor(apiKey: string, model: string = "claude-haiku-4-5-20251001") {
+  constructor(apiKey: string, model: string = "claude-haiku-5-5") {
     this.client = new Anthropic({ apiKey });
     this.model = model;
   }
