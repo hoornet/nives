@@ -30,7 +30,7 @@ if [ -n "${NIVES_NEEDS_KEY:-}" ]; then
         MESSAGE="Nives can't answer yet: no API key is set for the selected provider, ${PROVIDER_NAME}.
 
 1. Get a key from your provider: [OpenRouter](https://openrouter.ai/keys), [Anthropic](https://console.anthropic.com), [OpenAI](https://platform.openai.com/api-keys) or [Mistral](https://console.mistral.ai).
-2. Go to Settings → Add-ons → Nives → Configuration.
+2. Go to Settings → Apps → Nives → Configuration (called Add-ons in older Home Assistant versions).
 3. Set **Provider** to the one your key is from and paste the key into **API Key**. If **LLM Mode** says \`cloud\`, set it to \`byok\`.
 4. Save, and restart the add-on.
 
