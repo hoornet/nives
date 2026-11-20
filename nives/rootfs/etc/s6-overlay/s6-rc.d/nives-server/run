@@ -1,5 +1,65 @@
 #!/command/with-contenv bash
 
+# No API key for the selected provider (options-to-env.sh sets NIVES_NEEDS_KEY
+# to its name). Started anyway, the server fails its config check and s6
+# restarts it every 3 seconds with nothing shown in Home Assistant. Post a
+# notification saying what to add instead, then wait without exiting so s6 has
+# nothing to restart. Saving a key and restarting the add-on starts a fresh
+# container, where options-to-env.sh runs again; once the server is running it
+# dismisses this notification itself (jobs/cloud-closing-notice.ts).
+#
+# The add-on has no `watchdog:` in config.yaml, so the Supervisor does not
+# health-check port 3100 and leaves a waiting add-on alone.
+if [ -n "${NIVES_NEEDS_KEY:-}" ]; then
+    case "$NIVES_NEEDS_KEY" in
+        openrouter) PROVIDER_NAME="OpenRouter" ;;
+        anthropic)  PROVIDER_NAME="Anthropic" ;;
+        openai)     PROVIDER_NAME="OpenAI" ;;
+        mistral)    PROVIDER_NAME="Mistral" ;;
+        *)          PROVIDER_NAME="$NIVES_NEEDS_KEY" ;;
+    esac
+    echo "[server] No API key is set for ${PROVIDER_NAME}, so the Nives server is not starting."
+    echo "[server] Save a key in the add-on's Configuration (Provider and API Key) and restart the add-on."
+
+    TOKEN="${SUPERVISOR_TOKEN:-}"
+    if [ -z "$TOKEN" ] && [ -f /var/run/s6/container_environment/SUPERVISOR_TOKEN ]; then
+        TOKEN=$(cat /var/run/s6/container_environment/SUPERVISOR_TOKEN)
+    fi
+
+    if [ -n "$TOKEN" ]; then
+        MESSAGE="Nives can't answer yet: no API key is set for the selected provider, ${PROVIDER_NAME}.
+
+1. Get a key from your provider: [OpenRouter](https://openrouter.ai/keys), [Anthropic](https://console.anthropic.com), [OpenAI](https://platform.openai.com/api-keys) or [Mistral](https://console.mistral.ai).
+2. Go to Settings → Add-ons → Nives → Configuration.
+3. Set **Provider** to the one your key is from and paste the key into **API Key**. If **LLM Mode** says \`cloud\`, set it to \`byok\`.
+4. Save, and restart the add-on.
+
+Your memories and settings stay as they are."
+        PAYLOAD=$(jq -n \
+            --arg id "nives_needs_key" \
+            --arg title "Nives needs an API key" \
+            --arg message "$MESSAGE" \
+            '{notification_id: $id, title: $title, message: $message}')
+
+        # Home Assistant may still be starting, so keep trying until it answers.
+        WAITING_LOGGED=false
+        until curl -sf -o /dev/null --max-time 10 -X POST \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "http://supervisor/core/api/services/persistent_notification/create"; do
+            if [ "$WAITING_LOGGED" = "false" ]; then
+                echo "[server] Home Assistant is not answering yet; trying the notification again every 30 seconds."
+                WAITING_LOGGED=true
+            fi
+            sleep 30
+        done
+        echo "[server] Posted a notification in Home Assistant explaining how to add a key."
+    fi
+
+    exec sleep infinity
+fi
+
 echo "[server] Waiting for Shodh Memory to be ready..."
 for i in $(seq 1 30); do
     if curl -sf http://127.0.0.1:3030/health > /dev/null 2>&1; then

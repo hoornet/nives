@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   CLOUD_CLOSING_NOTIFICATION_ID,
+  NEEDS_KEY_NOTIFICATION_ID,
   RETIRED_NOTIFICATION_IDS,
   cloudClosingMessage,
   postCloudClosingNotice,
@@ -40,7 +41,7 @@ describe("postCloudClosingNotice", () => {
 
     expect(await postCloudClosingNotice(ha, "cloud")).toBe(true);
 
-    expect(dismissed(ha)).toEqual(RETIRED_NOTIFICATION_IDS);
+    expect(dismissed(ha)).toEqual([...RETIRED_NOTIFICATION_IDS, NEEDS_KEY_NOTIFICATION_ID]);
     expect(created(ha)).toHaveLength(1);
     expect(created(ha)[0][3].notification_id).toBe(CLOUD_CLOSING_NOTIFICATION_ID);
   });
@@ -51,7 +52,11 @@ describe("postCloudClosingNotice", () => {
     expect(await postCloudClosingNotice(ha, "byok")).toBe(false);
 
     expect(created(ha)).toHaveLength(0);
-    expect(dismissed(ha)).toEqual([...RETIRED_NOTIFICATION_IDS, CLOUD_CLOSING_NOTIFICATION_ID]);
+    expect(dismissed(ha)).toEqual([
+      ...RETIRED_NOTIFICATION_IDS,
+      NEEDS_KEY_NOTIFICATION_ID,
+      CLOUD_CLOSING_NOTIFICATION_ID,
+    ]);
   });
 
   it("reports a failed dismissal so the caller can retry", async () => {
@@ -63,6 +68,16 @@ describe("postCloudClosingNotice", () => {
     });
 
     await expect(postCloudClosingNotice(ha, "byok")).rejects.toThrow("HA unreachable");
+  });
+
+  it("clears the add-on's no-key notice in either mode, since the server only runs with a key", async () => {
+    // The add-on's nives-server run script posts it instead of starting the
+    // server; nothing else ever takes it down.
+    for (const mode of ["cloud", "byok"] as const) {
+      const ha = fakeHa();
+      await postCloudClosingNotice(ha, mode);
+      expect(dismissed(ha)).toContain("nives_needs_key");
+    }
   });
 
   it("clears the old out-of-credit notice that pointed at the Cloud site", async () => {
@@ -117,7 +132,7 @@ describe("scheduleCloudClosingNotice", () => {
     await vi.advanceTimersByTimeAsync(60_000);
 
     const ids = dismissed(ha);
-    for (const id of [...RETIRED_NOTIFICATION_IDS, CLOUD_CLOSING_NOTIFICATION_ID]) {
+    for (const id of [...RETIRED_NOTIFICATION_IDS, NEEDS_KEY_NOTIFICATION_ID, CLOUD_CLOSING_NOTIFICATION_ID]) {
       expect(ids.filter((x) => x === id).length).toBeGreaterThanOrEqual(1);
     }
     expect(created(ha)).toHaveLength(0);

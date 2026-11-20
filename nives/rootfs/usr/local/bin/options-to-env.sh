@@ -163,6 +163,20 @@ else
                 ;;
         esac
     fi
+
+    # No key for a provider that needs one. The server would fail its config
+    # check and s6 would restart it every few seconds, with nothing shown in
+    # Home Assistant. NIVES_NEEDS_KEY tells the nives-server service to post a
+    # notification and wait instead. Ollama runs without a key.
+    if [ -z "$LLM_API_KEY" ]; then
+        case "$LLM_PROVIDER" in
+            anthropic|openai|openrouter|mistral)
+                write_env "NIVES_NEEDS_KEY" "$LLM_PROVIDER"
+                echo "[init] No API key is set for Provider '${LLM_PROVIDER}', so the Nives server will not start."
+                echo "[init]   Add one under API Key in the add-on's Configuration, save, and restart the add-on."
+                ;;
+        esac
+    fi
 fi
 
 # --- Optional voice and transcription (opt-in, default off) ---

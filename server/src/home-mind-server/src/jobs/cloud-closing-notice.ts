@@ -8,7 +8,8 @@ import type { HomeAssistantClient } from "../ha/client.js";
  * This replaces the balance watch: with top-ups closed, its "top up" advice
  * had nowhere left to send people. Its notifications, and the integration's
  * old out-of-credit notice that also pointed at the Cloud site, are dismissed
- * here too, in every mode, so none of them lingers after the update.
+ * here too, in every mode, so none of them lingers after the update. So is the
+ * add-on's "needs an API key" notice: the server only starts once a key is set.
  */
 
 export const CLOUD_CLOSING_NOTIFICATION_ID = "nives_cloud_closing";
@@ -18,6 +19,11 @@ export const CLOUD_CLOSING_NOTIFICATION_ID = "nives_cloud_closing";
  * which now posts under `nives_out_of_credit` instead.
  */
 export const RETIRED_NOTIFICATION_IDS = ["nives_low_balance", "nives_balance_paused", "nives_usage_limit"];
+/**
+ * Posted by the add-on's nives-server run script, in place of starting the
+ * server, when no API key is set. A running server means a key is set now.
+ */
+export const NEEDS_KEY_NOTIFICATION_ID = "nives_needs_key";
 
 export const CLOUD_CLOSING_DATE = new Date("2026-12-01T00:00:00Z");
 
@@ -51,16 +57,16 @@ async function dismiss(ha: Notifier, id: string): Promise<void> {
 }
 
 /**
- * Clear the retired notifications and, in Cloud mode, post the closing notice
- * (or clear it once the user has switched). Throws when any call to Home
- * Assistant fails, so the caller can retry.
+ * Clear the retired notifications and the no-key notice and, in Cloud mode,
+ * post the closing notice (or clear it once the user has switched). Throws
+ * when any call to Home Assistant fails, so the caller can retry.
  */
 export async function postCloudClosingNotice(
   ha: Notifier,
   llmMode: "cloud" | "byok",
   now: Date = new Date()
 ): Promise<boolean> {
-  for (const id of RETIRED_NOTIFICATION_IDS) await dismiss(ha, id);
+  for (const id of [...RETIRED_NOTIFICATION_IDS, NEEDS_KEY_NOTIFICATION_ID]) await dismiss(ha, id);
   if (llmMode !== "cloud") {
     await dismiss(ha, CLOUD_CLOSING_NOTIFICATION_ID);
     return false;
