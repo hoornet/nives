@@ -810,11 +810,11 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
     it("passes a call with no target at all", async () => {
       const client = new HomeAssistantClient(baseConfig, exposing("light.kitchen_table"));
       await client.callService("notify", "notify", undefined, { message: "hi" });
-      // The balance heads-up raises and clears its own notification this way.
+      // Startup notices raise and clear their own notifications this way.
       await client.callService("persistent_notification", "create", undefined, {
-        notification_id: "nives_balance_low",
+        notification_id: "nives_example_notice",
         title: "Nives",
-        message: "Balance is low",
+        message: "Something to tell you",
       });
       expect(posted("notify/notify")).toBe(true);
       expect(posted("persistent_notification/create")).toBe(true);

@@ -19,7 +19,7 @@ import { WebSocket, Agent } from "undici";
  * with the content-encoding header removed. Every non-streaming call to such a
  * server (anything behind Cloudflare, for one, offers HTTP/2) got
  * garbage: transcriptions came back empty because the SDK found no JSON and so
- * no `text`, and the balance check failed with `Unexpected token ''`. It
+ * no `text`, and plain JSON fetches failed with `Unexpected token ''`. It
  * shipped in 2.6.6 and 2.6.7, because nothing here fetched a compressed
  * response over HTTP/2. This does, from a local server with a throwaway
  * certificate that is trusted for the test (validation stays on), so it needs

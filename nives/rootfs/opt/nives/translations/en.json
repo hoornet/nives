@@ -10,7 +10,7 @@
           "user_id": "Memory name (optional)"
         },
         "data_description": {
-          "api_token": "Required for cloud-hosted Nives. Leave empty for self-hosted setups without authentication.",
+          "api_token": "Leave empty for the Nives add-on: it creates its own token and hands it to Home Assistant by itself. Only needed for a Nives server you run yourself with an API token set.",
           "user_id": "The name of the memory Nives keeps for your household. Leave it as 'default'. You can change it later, and choose whether everyone shares one memory, under Configure."
         }
       },
@@ -21,7 +21,7 @@
     },
     "error": {
       "cannot_connect": "Failed to connect to the Nives API. Make sure it's running and accessible.",
-      "invalid_auth": "Invalid API token. Check your token on the Nives dashboard.",
+      "invalid_auth": "The Nives server did not accept this API token. For the Nives add-on, leave the token empty; for a server you run yourself, use the API token it is configured with.",
       "unknown": "Unexpected error occurred."
     },
     "abort": {

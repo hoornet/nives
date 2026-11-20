@@ -3,7 +3,7 @@ import { OpenAITtsService } from "./tts-service.js";
 
 // The audio format has to be asked for by name. OpenAI's own API defaults to
 // MP3, but an OpenAI-compatible endpoint need not — the one behind the add-on's
-// cloud voice defaults to raw PCM. Left unset, /api/tts serves PCM bytes as
+// Slovene voices defaults to raw PCM. Left unset, /api/tts serves PCM bytes as
 // audio/mpeg and every caller, the HA text-to-speech entity included, plays
 // noise. Nothing else in the stack can detect that, so it is pinned here.
 
