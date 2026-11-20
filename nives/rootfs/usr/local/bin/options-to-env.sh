@@ -91,6 +91,9 @@ if [ "$USE_CLOUD" = "true" ]; then
     write_env "OPENAI_API_KEY" "$PROXY_KEY"
     write_env "OPENAI_BASE_URL" "https://openrouter.ai/api/v1"
     write_env "LLM_MODEL" "@preset/nives-standard"
+    # The cloud-switch service restarts the add-on on this day if it is still
+    # running, so the switch does not wait for the next start.
+    write_env "NIVES_CLOUD_ENDS" "2026-12-01"
     echo "[init] Nives Cloud closes on 1 December 2026. From that day Nives uses your own-key (byok)"
     echo "[init]   settings by itself; add your own key there before then."
 else

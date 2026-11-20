@@ -34,7 +34,7 @@ Nives bundles two services in one add-on:
 
 ## Nives Cloud ends on 1 December 2026
 
-Nives Cloud ends on 1 December 2026. Until then, a Nives Cloud key keeps working as before. From that day the add-on uses your own-key settings by itself, even if **LLM Mode** still says `cloud`, so there is nothing to do on the day. Add your own key before then by following [Setup](#setup) below; your memories, automations and settings stay as they are. If no key is set by then, Home Assistant shows a notification saying what to add and where.
+Nives Cloud ends on 1 December 2026. Until then, a Nives Cloud key keeps working as before. From that day the add-on uses your own-key settings by itself, even if **LLM Mode** still says `cloud`, so there is nothing to do on the day. If it is running at the time, it restarts itself just after midnight (UTC) to make the switch. Add your own key before then by following [Setup](#setup) below; your memories, automations and settings stay as they are. If no key is set by then, Home Assistant shows a notification saying what to add and where.
 
 ---
 
