@@ -1352,6 +1352,10 @@ describe("HomeAssistantClient and the Assist exposure list", () => {
           /uses something you may not use|may not contain \{% %\}/
         );
       }
+      // an unexposed device read with spaced-out dots is still the same device
+      await expect(
+        create(client, say("{{ states . sensor . phone_next_alarm . state }}"))
+      ).rejects.toThrow(/sensor\.phone_next_alarm is not available/);
       expect(wroteAutomation()).toBe(false);
       for (const template of [
         "{{ states('sensor.kitchen_presence') }}",

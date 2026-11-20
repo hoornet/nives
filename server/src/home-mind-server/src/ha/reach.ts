@@ -12,7 +12,7 @@
  * its templates read, since they run with that authority too.
  */
 
-import { isSafeTemplate } from "./template-check.js";
+import { checkTemplate } from "./template-check.js";
 import {
   CODE_DOMAINS,
   SCRIPT_LIFECYCLE,
@@ -298,7 +298,14 @@ export function collectReach(node: unknown, reach: Reach = emptyReach(), asData 
   }
   if (typeof node === "string") {
     addMentions(node, reach.mentioned);
-    if (isTemplate(node) && !isSafeTemplate(node)) {
+    const template = isTemplate(node) ? checkTemplate(node) : undefined;
+    // What the template reads, as the parser saw it: held to the exposure
+    // list like any other mention, whatever the spacing.
+    for (const id of template?.ids ?? []) {
+      const domain = id.slice(0, id.indexOf("."));
+      if (domain !== "zone" && domain !== "sun") reach.mentioned.add(id);
+    }
+    if (template && !template.safe) {
       reach.refused.add(
         `A template in this automation (${node.trim().slice(0, 80)}) uses something you may not ` +
           `use in an automation. Templates may read a device only by its id, as in ` +

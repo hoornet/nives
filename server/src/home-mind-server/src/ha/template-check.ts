@@ -127,6 +127,8 @@ function tokenize(source: string): Token[] | null {
 /** A recursive-descent check of one `{{ ... }}` expression; any throw means "not allowed". */
 class Checker {
   private pos = 0;
+  /** Every entity the expression reads, lower-cased, for the exposure check. */
+  readonly ids: string[] = [];
   constructor(private readonly tokens: Token[]) {}
 
   check(): boolean {
@@ -281,7 +283,10 @@ class Checker {
     const t = this.take();
     // Home Assistant lower-cases an id when it looks one up; the exposure
     // check reads the mention lower-cased too.
-    if (t.kind === "str" && ENTITY_ID.test(t.text.toLowerCase())) return;
+    if (t.kind === "str" && ENTITY_ID.test(t.text.toLowerCase())) {
+      this.ids.push(t.text.toLowerCase());
+      return;
+    }
     if (t.kind === "name" && t.text === "trigger" && this.isOp(".")) {
       this.take();
       if (this.name() === "entity_id") return;
@@ -323,6 +328,7 @@ class Checker {
       this.expect(".");
       const object = this.name();
       if (!ENTITY_ID.test(`${domain}.${object}`)) throw new Error("entity id");
+      this.ids.push(`${domain}.${object}`);
       this.expect(".");
       const field = this.name();
       if (!STATE_FIELDS.has(field)) throw new Error(`field ${field}`);
@@ -370,20 +376,32 @@ class Checker {
 }
 
 /**
- * Whether every template in `text` has one of the allowed shapes. Text with no
- * template is fine; `{% ... %}` statements and anything unparsed are not.
- * Comments (`{# ... #}`) are ignored.
+ * Whether every template in `text` has one of the allowed shapes, and the
+ * entities those templates read. Text with no template is fine; `{% ... %}`
+ * statements and anything unparsed are not. Comments (`{# ... #}`) are ignored.
+ * The ids come from the parse itself, so no spacing or spelling can hide one
+ * from the exposure check.
  */
-export function isSafeTemplate(text: string): boolean {
+export function checkTemplate(text: string): { safe: boolean; ids: string[] } {
+  const refused = { safe: false, ids: [] };
   const withoutComments = text.replace(/\{#[\s\S]*?#\}/g, "");
-  if (withoutComments.includes("{%") || withoutComments.includes("%}")) return false;
+  if (withoutComments.includes("{%") || withoutComments.includes("%}")) return refused;
   const blocks = withoutComments.match(/\{\{[\s\S]*?\}\}/g) ?? [];
   const rest = withoutComments.replace(/\{\{[\s\S]*?\}\}/g, "");
-  if (rest.includes("{{") || rest.includes("}}")) return false;
+  if (rest.includes("{{") || rest.includes("}}")) return refused;
+  const ids: string[] = [];
   for (const block of blocks) {
     const inner = block.slice(2, -2).replace(/^-/, "").replace(/-$/, "");
     const tokens = tokenize(inner);
-    if (!tokens || tokens.length === 0 || !new Checker(tokens).check()) return false;
+    if (!tokens || tokens.length === 0) return refused;
+    const checker = new Checker(tokens);
+    if (!checker.check()) return refused;
+    ids.push(...checker.ids);
   }
-  return true;
+  return { safe: true, ids };
+}
+
+/** Whether every template in `text` has one of the allowed shapes (see `checkTemplate`). */
+export function isSafeTemplate(text: string): boolean {
+  return checkTemplate(text).safe;
 }

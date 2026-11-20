@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSafeTemplate } from "./template-check.js";
+import { checkTemplate, isSafeTemplate } from "./template-check.js";
 
 describe("isSafeTemplate", () => {
   it("allows plain text and the everyday shapes", () => {
@@ -28,6 +28,17 @@ describe("isSafeTemplate", () => {
     ]) {
       expect(isSafeTemplate(text), text).toBe(true);
     }
+  });
+
+  it("reports every entity a template reads, however it is spaced", () => {
+    expect(checkTemplate("{{ states . sensor . private_temperature . state }}")).toEqual({
+      safe: true,
+      ids: ["sensor.private_temperature"],
+    });
+    expect(
+      checkTemplate("{{ states( 'Sensor.A' ) }} and {{ state_attr('sensor.b', 'x') }}").ids
+    ).toEqual(["sensor.a", "sensor.b"]);
+    expect(checkTemplate("{{ state_attr(trigger.entity_id, 'friendly_name') }}").ids).toEqual([]);
   });
 
   it("refuses everything outside those shapes", () => {
