@@ -40,14 +40,17 @@ chmod 600 /data/.api_token /data/.shodh_key 2>/dev/null || true
 API_TOKEN=$(cat /data/.api_token)
 
 # Read options (nested cloud/byok structure)
+# Keys, model and URL are typed or pasted into the configuration form, where a
+# stray space is easy to miss and makes every request fail; trim them.
+TRIM='| sub("^\\s+"; "") | sub("\\s+$"; "")'
 LLM_MODE=$(jq -r '.llm_mode // "byok"' "$OPTIONS")
-PROXY_KEY=$(jq -r '.cloud.api_key // ""' "$OPTIONS")
+PROXY_KEY=$(jq -r "(.cloud.api_key // \"\") $TRIM" "$OPTIONS")
 CLOUD_TRANSCRIPTION=$(jq -r '.cloud.transcription // false' "$OPTIONS")
 CLOUD_VOICE=$(jq -r '.cloud.voice // "off"' "$OPTIONS")
-LLM_PROVIDER=$(jq -r '.byok.provider // "openrouter"' "$OPTIONS")
-LLM_API_KEY=$(jq -r '.byok.api_key // ""' "$OPTIONS")
-LLM_MODEL=$(jq -r '.byok.model // ""' "$OPTIONS")
-LLM_BASE_URL=$(jq -r '.byok.base_url // ""' "$OPTIONS")
+LLM_PROVIDER=$(jq -r "(.byok.provider // \"openrouter\") $TRIM" "$OPTIONS")
+LLM_API_KEY=$(jq -r "(.byok.api_key // \"\") $TRIM" "$OPTIONS")
+LLM_MODEL=$(jq -r "(.byok.model // \"\") $TRIM" "$OPTIONS")
+LLM_BASE_URL=$(jq -r "(.byok.base_url // \"\") $TRIM" "$OPTIONS")
 CUSTOM_PROMPT=$(jq -r '.custom_prompt // ""' "$OPTIONS")
 MAX_OUTPUT_TOKENS=$(jq -r '.max_output_tokens // ""' "$OPTIONS")
 REASONING_EFFORT=$(jq -r '.reasoning_effort // ""' "$OPTIONS")
