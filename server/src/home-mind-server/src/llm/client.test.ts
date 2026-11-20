@@ -162,6 +162,60 @@ describe("LLMClient (Anthropic engine)", () => {
     expect(result.error).toBeUndefined();
   });
 
+  describe("at the tool-call cap", () => {
+    const toolTurn = () =>
+      finalMessage({
+        content: [{ type: "tool_use", id: "toolu_1", name: "get_state", input: { entity_id: "light.hall" } }],
+        stop_reason: "tool_use",
+      });
+
+    it("reports the lookup limit when the forced last turn still only asks for a tool", async () => {
+      // Same hint as the OpenAI engine: the loop has stopped, so the call is
+      // not run, and an empty reply must not look like success.
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      mockStream.mockImplementation(() => toolTurn());
+
+      const result = await engine.chat({ message: "Check every light", userId: "u" });
+
+      // The first turn, eight tool rounds, the last of them forced.
+      expect(mockStream).toHaveBeenCalledTimes(9);
+      expect(mockStream.mock.calls[8][0].tool_choice).toEqual({ type: "none" });
+      expect(mockStream.mock.calls[7][0]).not.toHaveProperty("tool_choice");
+      expect(result.response).toBe("");
+      expect(result.error?.code).toBe("EMPTY_CONTENT");
+      expect(result.error?.hint).toMatch(/limit of lookups/);
+    });
+
+    it("returns the answer when the forced last turn writes one", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      let calls = 0;
+      mockStream.mockImplementation(() =>
+        ++calls < 9
+          ? toolTurn()
+          : finalMessage({ content: [{ type: "text", text: "All lights are off." }] })
+      );
+
+      const result = await engine.chat({ message: "Check every light", userId: "u" });
+
+      expect(result.response).toBe("All lights are off.");
+      expect(result.error).toBeUndefined();
+    });
+
+    it("does not blame the lookup limit for a tool call cut off by the output cap", async () => {
+      mockStream.mockReturnValue(
+        finalMessage({
+          content: [{ type: "tool_use", id: "toolu_1", name: "get_state", input: {} }],
+          stop_reason: "max_tokens",
+        })
+      );
+
+      const result = await engine.chat({ message: "Hi", userId: "u" });
+
+      expect(mockStream).toHaveBeenCalledTimes(1);
+      expect(result.error?.hint ?? "").not.toMatch(/limit of lookups/);
+    });
+  });
+
   it("logs the cap being reached with Anthropic's usage field names", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockStream.mockReturnValue(
