@@ -41,13 +41,17 @@ Your memories and settings stay as they are."
             --arg message "$MESSAGE" \
             '{notification_id: $id, title: $title, message: $message}')
 
+        post_notice() {
+            curl -sf -o /dev/null --max-time 10 -X POST \
+                -H "Authorization: Bearer ${TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "$PAYLOAD" \
+                "http://supervisor/core/api/services/persistent_notification/create"
+        }
+
         # Home Assistant may still be starting, so keep trying until it answers.
         WAITING_LOGGED=false
-        until curl -sf -o /dev/null --max-time 10 -X POST \
-            -H "Authorization: Bearer ${TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            "http://supervisor/core/api/services/persistent_notification/create"; do
+        until post_notice; do
             if [ "$WAITING_LOGGED" = "false" ]; then
                 echo "[server] Home Assistant is not answering yet; trying the notification again every 30 seconds."
                 WAITING_LOGGED=true
@@ -55,6 +59,14 @@ Your memories and settings stay as they are."
             sleep 30
         done
         echo "[server] Posted a notification in Home Assistant explaining how to add a key."
+
+        # Home Assistant forgets notifications when it restarts, and this add-on
+        # keeps waiting, so post it again every 6 hours (same id: it replaces
+        # itself rather than piling up). Never exit, or s6 starts this again.
+        while true; do
+            sleep 21600
+            post_notice || true
+        done
     fi
 
     exec sleep infinity
