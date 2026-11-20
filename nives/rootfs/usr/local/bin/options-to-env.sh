@@ -139,6 +139,16 @@ else
     # the server's own built-in default, which is an Anthropic model id. Pointing
     # that at OpenAI or Ollama gets a "model not found" error that reads like the
     # add-on is broken rather than like a missing setting.
+    # Anthropic's API names a model claude-haiku-5-5; OpenRouter names the same
+    # model anthropic/claude-haiku-5.5, and that is the example people copy.
+    # Sent to Anthropic it fails every request with "model not found", so turn
+    # an OpenRouter-style Anthropic id into Anthropic's own and say so.
+    if [ "$LLM_PROVIDER" = "anthropic" ] && [ "${LLM_MODEL#anthropic/}" != "$LLM_MODEL" ]; then
+        converted=$(printf '%s' "${LLM_MODEL#anthropic/}" | tr '.' '-')
+        echo "[init] Model '${LLM_MODEL}' is how OpenRouter names it; with an Anthropic key using '${converted}'"
+        LLM_MODEL="$converted"
+    fi
+
     if [ -n "$LLM_MODEL" ]; then
         write_env "LLM_MODEL" "$LLM_MODEL"
     else
